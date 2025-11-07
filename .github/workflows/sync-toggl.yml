@@ -21,18 +21,14 @@ jobs:
         with:
           deno-version: v1.x
 
-      - name: Create .env file
-        run: |
-          cat << EOF > .env
-          TOGGL_API_TOKEN="${{ secrets.TOGGL_API_TOKEN }}"
-          TOGGL_WORKSPACE_ID="${{ secrets.TOGGL_WORKSPACE_ID }}"
-          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
-          SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
-          EOF
-
       - name: Sync latest Toggl entries
         run: |
           deno run --allow-net --allow-env --allow-read src/services/toggl/syncToSupabase.ts
+        env:
+          TOGGL_API_TOKEN: ${{ secrets.TOGGL_API_TOKEN }}
+          TOGGL_WORKSPACE_ID: ${{ secrets.TOGGL_WORKSPACE_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
       - name: Show sync result
         if: always()
