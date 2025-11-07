@@ -202,7 +202,8 @@ export async function getLatestEntries(){
     const dateB = new Date(b.start).getTime();
     return dateB - dateA;
   });
-  return reversed.slice(0, 3); // return latest 20 entries
+  // return reversed.slice(0, 3); // return latest 3 entries
+  return reversed; // return latest 20 entries
 
 }
 
