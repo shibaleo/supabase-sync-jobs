@@ -1,9 +1,9 @@
 name: Sync Toggl to Supabase
 
 on:
-  # Run every 30 minutes
-  #schedule:
-  #  - cron: '*/30 * * * *'  # Every 30 minutes
+  # Run daily at 10:34 AM UTC
+  schedule:
+    - cron: '34 10 * * *'
 
   # Allow manual trigger
   workflow_dispatch:
