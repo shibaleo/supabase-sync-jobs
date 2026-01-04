@@ -24,7 +24,7 @@ const logger = setupLogger("mstodo-api");
 // Configuration
 const MS_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const GRAPH_API_BASE = "https://graph.microsoft.com/v1.0";
-const DEFAULT_THRESHOLD_MINUTES = 60;
+const DEFAULT_THRESHOLD_MINUTES = 5;
 const DEFAULT_RETRY_DELAY_SEC = 1;
 
 // Types
