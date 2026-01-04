@@ -165,3 +165,58 @@ models:
 
       - name: api_version
         description: "API version (v1.0)"
+
+  - name: stg_microsoft_todo__checklist_items
+    description: "Microsoft To Do checklist items / subtasks (staging)"
+    columns:
+      - name: id
+        description: "Primary key (UUID)"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: checklist_item_id
+        description: "Microsoft To Do checklist item ID"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: task_id
+        description: "親タスクID"
+        data_tests:
+          - not_null
+
+      - name: list_id
+        description: "所属リストID"
+        data_tests:
+          - not_null
+
+      - name: display_name
+        description: "チェックリストアイテム名"
+        data_tests:
+          - not_null
+
+      - name: is_checked
+        description: "チェック済みかどうか"
+        data_tests:
+          - not_null
+
+      - name: checked_datetime_local
+        description: "チェック日時 (ローカルタイムゾーン)"
+
+      - name: checked_timezone
+        description: "チェックのタイムゾーン"
+
+      - name: checked_at
+        description: "チェック日時 (UTC)"
+
+      - name: created_at
+        description: "作成日時"
+
+      - name: synced_at
+        description: "同期日時"
+        data_tests:
+          - not_null
+
+      - name: api_version
+        description: "API version (v1.0)"

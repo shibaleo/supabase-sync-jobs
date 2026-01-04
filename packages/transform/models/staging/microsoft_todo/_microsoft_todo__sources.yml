@@ -37,3 +37,17 @@ sources:
             description: "同期日時"
           - name: api_version
             description: "API version (v1.0)"
+
+      - name: microsoft_todo__checklist_items
+        description: "Microsoft To Do checklist items (subtasks)"
+        columns:
+          - name: id
+            description: "Primary key (UUID)"
+          - name: source_id
+            description: "Microsoft To Do checklist item ID"
+          - name: data
+            description: "Raw JSON response from Microsoft Graph API"
+          - name: synced_at
+            description: "同期日時"
+          - name: api_version
+            description: "API version (v1.0)"

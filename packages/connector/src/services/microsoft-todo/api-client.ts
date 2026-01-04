@@ -407,3 +407,99 @@ export async function fetchAllTasks(): Promise<Record<string, unknown>[]> {
   logger.info(`Fetched ${allTasks.length} tasks total`);
   return allTasks;
 }
+
+// =============================================================================
+// Microsoft To Do API - Checklist Items
+// =============================================================================
+
+/**
+ * Fetch checklist items for a specific task
+ */
+export async function fetchChecklistItems(
+  listId: string,
+  taskId: string
+): Promise<Record<string, unknown>[]> {
+  const auth = await getAuthInfo();
+
+  logger.debug(`GET /me/todo/lists/${listId}/tasks/${taskId}/checklistItems`);
+  const allItems: Record<string, unknown>[] = [];
+  let nextLink: string | undefined = `${GRAPH_API_BASE}/me/todo/lists/${listId}/tasks/${taskId}/checklistItems`;
+
+  while (nextLink) {
+    let response: Response;
+    try {
+      response = await requestWithRetry("GET", nextLink, {
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+      });
+    } catch (error) {
+      // Token expired, refresh and retry
+      if (String(error).includes("401")) {
+        logger.warn("Token expired, refreshing...");
+        const newAuth = await getAuthInfo(true);
+        response = await requestWithRetry("GET", nextLink, {
+          headers: { Authorization: `Bearer ${newAuth.accessToken}` },
+        });
+      } else {
+        throw error;
+      }
+    }
+
+    const data = (await response.json()) as {
+      value?: Record<string, unknown>[];
+      "@odata.nextLink"?: string;
+    };
+
+    if (data.value) {
+      // Add listId and taskId to each item
+      for (const item of data.value) {
+        item.listId = listId;
+        item.taskId = taskId;
+
+        // Add UTC conversion for checkedDateTime
+        const checkedDateTime = item.checkedDateTime as { dateTime: string; timeZone: string } | null;
+        item._checkedDateTime_utc = convertToUtc(checkedDateTime);
+      }
+      allItems.push(...data.value);
+    }
+
+    nextLink = data["@odata.nextLink"];
+    if (nextLink) {
+      logger.debug("Pagination: fetching next page...");
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+
+  return allItems;
+}
+
+/**
+ * Fetch all checklist items from all tasks
+ */
+export async function fetchAllChecklistItems(): Promise<Record<string, unknown>[]> {
+  const lists = await fetchLists();
+
+  logger.info(`Fetching checklist items from ${lists.length} lists...`);
+
+  const allChecklistItems: Record<string, unknown>[] = [];
+
+  for (const list of lists) {
+    const tasks = await fetchTasks(list.id);
+
+    for (const task of tasks) {
+      const taskId = task.id as string;
+      const checklistItems = await fetchChecklistItems(list.id, taskId);
+      allChecklistItems.push(...checklistItems);
+
+      // Small delay between tasks to avoid rate limits
+      if (checklistItems.length > 0) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    }
+
+    // Small delay between lists
+    await new Promise((r) => setTimeout(r, 100));
+  }
+
+  logger.info(`Fetched ${allChecklistItems.length} checklist items total`);
+  return allChecklistItems;
+}

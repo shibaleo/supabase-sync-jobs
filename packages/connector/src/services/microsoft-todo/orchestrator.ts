@@ -10,6 +10,7 @@ import { setupLogger } from "../../lib/logger.js";
 import { getDbClient, closeDbClient } from "../../db/raw-client.js";
 import { syncLists } from "./sync-lists.js";
 import { syncTasks } from "./sync-tasks.js";
+import { syncChecklistItems } from "./sync-checklist-items.js";
 
 const logger = setupLogger("mstodo-orchestrator");
 
@@ -18,13 +19,14 @@ export interface SyncAllResult {
   success: boolean;
   listsCount: number;
   tasksCount: number;
+  checklistItemsCount: number;
   elapsedSeconds: number;
 }
 
 /**
  * Sync all Microsoft To Do data
  *
- * Executes in order: lists -> tasks
+ * Executes in order: lists -> tasks -> checklistItems
  * Database connection is opened once and reused throughout.
  *
  * @returns Sync result
@@ -37,6 +39,7 @@ export async function syncAll(): Promise<SyncAllResult> {
   const errors: string[] = [];
   let listsCount = 0;
   let tasksCount = 0;
+  let checklistItemsCount = 0;
 
   try {
     // Initialize shared DB connection
@@ -62,11 +65,21 @@ export async function syncAll(): Promise<SyncAllResult> {
       logger.warn("Tasks sync had partial failures");
     }
 
+    // 3. Checklist items sync
+    logger.info("Step 3: Syncing checklist items...");
+    const checklistItemsResult = await syncChecklistItems();
+    checklistItemsCount = checklistItemsResult.count;
+
+    if (!checklistItemsResult.success) {
+      errors.push("checklistItems: partial failure");
+      logger.warn("Checklist items sync had partial failures");
+    }
+
     const elapsed = Math.round((performance.now() - startTime) / 10) / 100;
 
     // Log summary
     logger.info(
-      `Microsoft To Do full sync completed in ${elapsed}s: lists=${listsCount}, tasks=${tasksCount}`
+      `Microsoft To Do full sync completed in ${elapsed}s: lists=${listsCount}, tasks=${tasksCount}, checklistItems=${checklistItemsCount}`
     );
 
     if (errors.length > 0) {
@@ -77,6 +90,7 @@ export async function syncAll(): Promise<SyncAllResult> {
       success: errors.length === 0,
       listsCount,
       tasksCount,
+      checklistItemsCount,
       elapsedSeconds: elapsed,
     };
   } catch (error) {
