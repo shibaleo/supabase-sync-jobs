@@ -36,10 +36,8 @@ def load_config() -> Config:
     if not database_url:
         raise ValueError("DIRECT_DATABASE_URL is required")
 
-    # 環境変数にあればそれを使用、なければVaultから取得
-    voyage_api_key = os.environ.get("VOYAGE_API_KEY")
-    if not voyage_api_key:
-        voyage_api_key = _get_voyage_api_key_from_vault(database_url)
+    # Voyage API KeyはSupabase Vaultから取得
+    voyage_api_key = _get_voyage_api_key_from_vault(database_url)
 
     return Config(
         database_url=database_url,

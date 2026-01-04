@@ -28,7 +28,7 @@ jobs:
         working-directory: packages/analyzer
         env:
           DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
-          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          # VOYAGE_API_KEY is retrieved from Supabase Vault
 
       - name: Notify on failure
         if: failure()
