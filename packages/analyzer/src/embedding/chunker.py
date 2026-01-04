@@ -167,7 +167,11 @@ def build_embedding_text(chunk: Chunk, frontmatter: FrontmatterDict) -> str:
     # メタデータ（1行圧縮）
     title = frontmatter.get("title", "")
     tags = ",".join(frontmatter.get("tags", []))
-    parts.append(f"title:{title}|tags:{tags}")
+    doc_class = frontmatter.get("document_class", "")
+    doc_type = frontmatter.get("document_type", "")
+    if isinstance(doc_type, list):
+        doc_type = ",".join(doc_type)
+    parts.append(f"title:{title}|class:{doc_class}|type:{doc_type}|tags:{tags}")
 
     # 前セクションのコンテキスト
     if chunk.context_previous:

@@ -18,14 +18,24 @@ export const ragTools: ToolDefinition[] = [
           items: { type: "string" },
           description: "Filter by tags (optional)",
         },
+        document_class: {
+          type: "string",
+          description: "Filter by document-class (e.g., 'note', 'journal', 'specification')",
+        },
+        document_type: {
+          type: "string",
+          description: "Filter by document-type (e.g., 'daily', 'survey', 'technical')",
+        },
         limit: { type: "number", default: 5, description: "Number of results to return" },
       },
       required: ["query"],
     },
     handler: async (params, _userId): Promise<McpToolResult> => {
-      const { query, tags, limit = 5 } = params as {
+      const { query, tags, document_class, document_type, limit = 5 } = params as {
         query: string;
         tags?: string[];
+        document_class?: string;
+        document_type?: string;
         limit?: number;
       };
 
@@ -34,7 +44,9 @@ export const ragTools: ToolDefinition[] = [
         queryEmbedding,
         tags || null,
         limit,
-        SIMILARITY_THRESHOLD
+        SIMILARITY_THRESHOLD,
+        document_class || null,
+        document_type || null
       );
 
       if (results.length === 0) {
@@ -47,6 +59,8 @@ export const ragTools: ToolDefinition[] = [
         content: r.content,
         file_path: r.file_path,
         similarity: r.similarity.toFixed(3),
+        document_class: r.document_class,
+        document_type: r.document_type,
       }));
 
       return { content: [{ type: "text", text: JSON.stringify(formatted, null, 2) }] };

@@ -13,6 +13,8 @@ export interface SearchResult {
   content: string;
   file_path: string;
   similarity: number;
+  document_class: string | null;
+  document_type: string | null;
 }
 
 export interface DocumentResult {
@@ -65,7 +67,9 @@ export async function searchChunks(
   queryEmbedding: number[],
   tags: string[] | null,
   limit: number,
-  threshold: number
+  threshold: number,
+  documentClass: string | null = null,
+  documentType: string | null = null
 ): Promise<SearchResult[]> {
   const supabase = getSupabaseClient();
 
@@ -74,6 +78,8 @@ export async function searchChunks(
     filter_tags: tags,
     match_count: limit,
     similarity_threshold: threshold,
+    filter_document_class: documentClass,
+    filter_document_type: documentType,
   });
 
   if (error) {

@@ -10,6 +10,8 @@ class FrontmatterDict(TypedDict, total=False):
     tags: list[str]
     aliases: list[str]
     previous: list[str]
+    document_type: str | list[str]  # "document-type"
+    document_class: str             # "document-class"
 
 
 @dataclass
