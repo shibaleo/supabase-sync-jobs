@@ -176,9 +176,8 @@ models:
           - not_null
 
       - name: checklist_item_id
-        description: "Microsoft To Do checklist item ID"
+        description: "Microsoft To Do checklist item ID (shared across recurring task instances)"
         data_tests:
-          - unique
           - not_null
 
       - name: task_id

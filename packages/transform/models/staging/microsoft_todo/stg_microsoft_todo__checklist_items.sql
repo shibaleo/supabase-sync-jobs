@@ -12,7 +12,8 @@ staged as (
     select
         -- Primary key
         id,
-        source_id as checklist_item_id,
+        -- source_id is composite key (taskId::itemId), extract original item ID
+        data->>'id' as checklist_item_id,
 
         -- Foreign keys
         data->>'taskId' as task_id,

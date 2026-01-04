@@ -21,11 +21,21 @@ export interface SyncResult {
 }
 
 /**
+ * Create composite key for checklist item (taskId + itemId)
+ * Microsoft To Do shares checklist item IDs across recurring task instances,
+ * so we need a composite key to distinguish them.
+ */
+function getCompositeKey(item: Record<string, unknown>): string {
+  return `${item.taskId}::${item.id}`;
+}
+
+/**
  * Convert API response to RawRecord
+ * Uses composite key (taskId::itemId) as sourceId to handle recurring tasks
  */
 function toRawRecord(item: Record<string, unknown>): RawRecord {
   return {
-    sourceId: item.id as string,
+    sourceId: getCompositeKey(item),
     data: item,
   };
 }
@@ -52,9 +62,10 @@ export async function syncChecklistItems(): Promise<SyncResult> {
       };
     }
 
-    // Deduplicate by source_id (API may return duplicates)
+    // Deduplicate by composite key (taskId::itemId)
+    // Microsoft To Do shares checklist item IDs across recurring task instances
     const uniqueItems = Array.from(
-      new Map(items.map((item) => [item.id as string, item])).values()
+      new Map(items.map((item) => [getCompositeKey(item), item])).values()
     );
     if (uniqueItems.length !== items.length) {
       logger.warn(`Deduplicated ${items.length - uniqueItems.length} duplicate checklist items`);
