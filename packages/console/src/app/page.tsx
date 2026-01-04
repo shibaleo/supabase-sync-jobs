@@ -22,7 +22,7 @@ export default async function Home() {
       <header className="border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-            LIFETRACER Admin
+            DWH+BI Admin
           </h1>
           <form action="/auth/signout" method="post">
             <button

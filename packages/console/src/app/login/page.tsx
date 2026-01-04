@@ -66,7 +66,7 @@ function LoginContent() {
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 px-4">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-center text-zinc-900 dark:text-zinc-100 mb-8">
-          LIFETRACER Admin
+          DWH+BI Admin
         </h1>
 
         <form onSubmit={handleLogin} className="space-y-4">

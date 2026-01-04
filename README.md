@@ -1,6 +1,6 @@
 # dwhbi
 
-LIFETRACER の中核となるデータ同期基盤。複数の外部サービスから個人データを取得し、Supabase（PostgreSQL）に統合保存する。
+DWH+BI の中核となるデータ同期基盤。複数の外部サービスから個人データを取得し、Supabase（PostgreSQL）に統合保存する。
 
 ![system config](./docs/img/system_config.png)
 

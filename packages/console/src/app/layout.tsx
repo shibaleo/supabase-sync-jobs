@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LIFETRACER Admin",
+  title: "DWH+BI Admin",
   description: "認証情報管理コンソール",
 };
 
