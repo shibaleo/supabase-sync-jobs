@@ -23,6 +23,7 @@ import {
   fetchCardioScore,
   fetchTemperatureSkin,
   fetchWithChunks,
+  setBeforeRateLimitWaitCallback,
   CHUNK_LIMITS,
   type ActivitySummary,
   type ActivityTimeSeriesMerged,
@@ -66,6 +67,14 @@ function activityToRawRecord(activity: ActivitySummary): RawRecord {
   };
 }
 
+/**
+ * Sync activity data using Daily Summary API
+ *
+ * Features:
+ * - Upserts data in batches of 1000 records
+ * - Flushes pending data before rate limit wait
+ * - Progress is saved even if interrupted
+ */
 export async function syncActivity(startDateOrDays: Date | number = 30, endDateParam?: Date): Promise<number> {
   let startDate: Date;
   let endDate: Date;
@@ -81,18 +90,55 @@ export async function syncActivity(startDateOrDays: Date | number = 30, endDateP
     logger.info(`Syncing activity data (${startDate.toISOString().slice(0, 10)} to ${endDate.toISOString().slice(0, 10)})...`);
   }
 
-  const activities = await fetchActivityRange(startDate, endDate);
+  const BATCH_SIZE = 1000;
+  let pendingRecords: RawRecord[] = [];
+  let totalSynced = 0;
 
-  if (activities.length === 0) {
-    logger.info("No activity data to sync");
-    return 0;
+  // Flush pending records to DB
+  const flushRecords = async () => {
+    if (pendingRecords.length === 0) return;
+
+    const result = await upsertRaw(ACTIVITY_TABLE, pendingRecords, API_VERSION);
+    totalSynced += result.total;
+    logger.info(`Flushed ${result.total} activity records to DB (total: ${totalSynced})`);
+    pendingRecords = [];
+  };
+
+  // Callback for rate limit wait - flush before waiting
+  const onBeforeRateLimitWait = async () => {
+    if (pendingRecords.length > 0) {
+      logger.info(`Flushing ${pendingRecords.length} records before rate limit wait...`);
+      await flushRecords();
+    }
+  };
+
+  // Set global callback for proactive rate limit detection in api-client
+  setBeforeRateLimitWaitCallback(onBeforeRateLimitWait);
+
+  // Callback for each day - add to pending and batch flush
+  const onDayComplete = async (activity: ActivitySummary) => {
+    pendingRecords.push(activityToRawRecord(activity));
+
+    // Flush if batch size reached
+    if (pendingRecords.length >= BATCH_SIZE) {
+      await flushRecords();
+    }
+  };
+
+  try {
+    await fetchActivityRange(startDate, endDate, {
+      onDayComplete,
+    });
+
+    // Flush any remaining records
+    await flushRecords();
+  } finally {
+    // Clear global callback
+    setBeforeRateLimitWaitCallback(null);
   }
 
-  const records = activities.map(activityToRawRecord);
-  const result = await upsertRaw(ACTIVITY_TABLE, records, API_VERSION);
-
-  logger.info(`Synced ${result.total} activity records`);
-  return result.total;
+  logger.info(`Synced ${totalSynced} activity records`);
+  return totalSynced;
 }
 
 // =============================================================================
@@ -136,7 +182,10 @@ function activityTimeSeriesMergedToRawRecord(activity: ActivityTimeSeriesMerged)
  *
  * Trade-off: calories_bmr and active_zone_minutes not available
  *
- * @deprecated Use syncActivity (Daily Summary API) instead - simpler and gets all fields
+ * Features:
+ * - Upserts data in batches of 1000 records
+ * - Flushes pending data before rate limit wait
+ * - Progress is saved even if interrupted
  */
 export async function syncActivityTimeSeries(startDateOrDays: Date | number = 30, endDateParam?: Date): Promise<number> {
   let startDate: Date;
@@ -153,18 +202,57 @@ export async function syncActivityTimeSeries(startDateOrDays: Date | number = 30
     logger.info(`Syncing activity data via Time Series API (${startDate.toISOString().slice(0, 10)} to ${endDate.toISOString().slice(0, 10)})...`);
   }
 
-  const activities = await fetchActivityTimeSeriesWithChunks(startDate, endDate);
+  const BATCH_SIZE = 1000;
+  let pendingRecords: RawRecord[] = [];
+  let totalSynced = 0;
 
-  if (activities.length === 0) {
-    logger.info("No activity data to sync");
-    return 0;
+  // Flush pending records to DB
+  const flushRecords = async () => {
+    if (pendingRecords.length === 0) return;
+
+    const result = await upsertRaw(ACTIVITY_TABLE, pendingRecords, API_VERSION_TIMESERIES);
+    totalSynced += result.total;
+    logger.info(`Flushed ${result.total} activity records to DB (total: ${totalSynced})`);
+    pendingRecords = [];
+  };
+
+  // Callback for rate limit wait - flush before waiting
+  const onBeforeRateLimitWait = async () => {
+    if (pendingRecords.length > 0) {
+      logger.info(`Flushing ${pendingRecords.length} records before rate limit wait...`);
+      await flushRecords();
+    }
+  };
+
+  // Set global callback for proactive rate limit detection in api-client
+  setBeforeRateLimitWaitCallback(onBeforeRateLimitWait);
+
+  // Callback for each chunk - add to pending and batch flush
+  const onChunkComplete = async (activities: ActivityTimeSeriesMerged[]) => {
+    const records = activities.map(activityTimeSeriesMergedToRawRecord);
+    pendingRecords.push(...records);
+
+    // Flush if batch size reached
+    if (pendingRecords.length >= BATCH_SIZE) {
+      await flushRecords();
+    }
+  };
+
+  try {
+    await fetchActivityTimeSeriesWithChunks(startDate, endDate, {
+      onChunkComplete,
+      onBeforeRateLimitWait,
+    });
+
+    // Flush any remaining records
+    await flushRecords();
+  } finally {
+    // Clear global callback
+    setBeforeRateLimitWaitCallback(null);
   }
 
-  const records = activities.map(activityTimeSeriesMergedToRawRecord);
-  const result = await upsertRaw(ACTIVITY_TABLE, records, API_VERSION_TIMESERIES);
-
-  logger.info(`Synced ${result.total} activity records via Time Series API`);
-  return result.total;
+  logger.info(`Synced ${totalSynced} activity records via Time Series API`);
+  return totalSynced;
 }
 
 // =============================================================================

@@ -29,7 +29,25 @@ const DEFAULT_THRESHOLD_MINUTES = 60;
 const DEFAULT_RETRY_DELAY_SEC = 60; // Default wait time when Retry-After header is missing
 const MAX_RETRY_DELAY_SEC = 3600; // Max 1 hour wait
 const BACKOFF_MULTIPLIER = 2; // Exponential backoff multiplier
-const RATE_LIMIT_BUFFER = 5; // Stop when remaining requests drops to this number
+const RATE_LIMIT_BUFFER = 0; // Flush and wait when remaining requests drops to this number
+
+// Global callback for flushing data before rate limit wait
+let globalBeforeRateLimitWait: (() => Promise<void>) | null = null;
+
+/**
+ * Set a global callback to be called before any rate limit wait
+ * Useful for flushing pending data to DB before waiting
+ */
+export function setBeforeRateLimitWaitCallback(callback: (() => Promise<void>) | null): void {
+  globalBeforeRateLimitWait = callback;
+}
+
+/**
+ * Get the current global rate limit wait callback
+ */
+export function getBeforeRateLimitWaitCallback(): (() => Promise<void>) | null {
+  return globalBeforeRateLimitWait;
+}
 
 // Chunk limits per data type
 export const CHUNK_LIMITS = {
@@ -118,6 +136,12 @@ async function checkRateLimitProactively(response: Response): Promise<boolean> {
 
       // Proactively wait if quota is nearly exhausted
       if (remainingCount <= RATE_LIMIT_BUFFER) {
+        // Flush pending data before waiting
+        if (globalBeforeRateLimitWait) {
+          logger.info("Flushing pending data before rate limit wait...");
+          await globalBeforeRateLimitWait();
+        }
+
         const waitSeconds = resetSec + 5; // Add 5 seconds buffer
         const waitMinutes = (waitSeconds / 60).toFixed(1);
         logger.info(`Rate limit nearly exhausted (${remainingCount} remaining). Waiting ${waitMinutes} min for reset...`);
@@ -743,20 +767,49 @@ export async function fetchWithChunks<T>(
 }
 
 /**
+ * Options for fetchActivityRange
+ */
+export interface FetchActivityRangeOptions {
+  /** Called after each day is fetched - use for incremental DB upserts */
+  onDayComplete?: (activity: ActivitySummary) => Promise<void>;
+  /** Called before waiting for rate limit reset - use to flush pending data */
+  onBeforeRateLimitWait?: () => Promise<void>;
+}
+
+/**
  * Fetch activity data day by day (Daily Summary API)
+ *
+ * Features:
+ * - Calls onDayComplete after each day for incremental processing
+ * - Rate limit wait callback is handled via global setBeforeRateLimitWaitCallback
  */
 export async function fetchActivityRange(
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: FetchActivityRangeOptions = {}
 ): Promise<ActivitySummary[]> {
+  const { onDayComplete } = options;
   const results: ActivitySummary[] = [];
   let currentDate = new Date(startDate);
+  let dayCount = 0;
 
   while (currentDate <= endDate) {
     const data = await fetchActivity(currentDate);
     if (data) {
       results.push(data);
+
+      // Notify caller for incremental processing
+      if (onDayComplete) {
+        await onDayComplete(data);
+      }
     }
+
+    dayCount++;
+    if (dayCount % 100 === 0) {
+      const dateStr = formatDate(currentDate);
+      logger.info(`Fetched ${dayCount} days (current: ${dateStr}, ${results.length} records)`);
+    }
+
     currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000);
   }
 
@@ -932,14 +985,29 @@ const SAFE_CHUNKS_PER_HOUR = Math.floor(RATE_LIMIT_PER_HOUR / REQUESTS_PER_CHUNK
 const RATE_LIMIT_WAIT_MS = 60 * 60 * 1000; // 1 hour in ms
 
 /**
+ * Options for fetchActivityTimeSeriesWithChunks
+ */
+export interface FetchActivityTimeSeriesOptions {
+  /** Called after each chunk is fetched - use to batch upsert to DB */
+  onChunkComplete?: (activities: ActivityTimeSeriesMerged[]) => Promise<void>;
+  /** Called before waiting for rate limit reset - use to flush pending data */
+  onBeforeRateLimitWait?: () => Promise<void>;
+}
+
+/**
  * Fetch activity time series with chunking (30 days per chunk)
  * Includes rate limit management: waits after every 16 chunks to avoid 429
- * @deprecated Use Daily Summary API instead
+ *
+ * Features:
+ * - Calls onChunkComplete after each chunk for incremental DB upserts
+ * - Calls onBeforeRateLimitWait before waiting, allowing data flush
  */
 export async function fetchActivityTimeSeriesWithChunks(
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  options: FetchActivityTimeSeriesOptions = {}
 ): Promise<ActivityTimeSeriesMerged[]> {
+  const { onChunkComplete, onBeforeRateLimitWait } = options;
   const results: ActivityTimeSeriesMerged[] = [];
   let currentStart = new Date(startDate);
   const chunkDays = CHUNK_LIMITS.activityTimeSeries;
@@ -948,6 +1016,11 @@ export async function fetchActivityTimeSeriesWithChunks(
   while (currentStart < endDate) {
     // Rate limit check: after 16 chunks (144 requests), wait 1 hour
     if (chunkCount > 0 && chunkCount % SAFE_CHUNKS_PER_HOUR === 0) {
+      // Flush pending data before waiting
+      if (onBeforeRateLimitWait) {
+        await onBeforeRateLimitWait();
+      }
+
       const waitMinutes = RATE_LIMIT_WAIT_MS / 1000 / 60;
       logger.info(`Rate limit prevention: processed ${chunkCount} chunks (${chunkCount * REQUESTS_PER_CHUNK} requests). Waiting ${waitMinutes} minutes...`);
       await new Promise(r => setTimeout(r, RATE_LIMIT_WAIT_MS));
@@ -968,6 +1041,11 @@ export async function fetchActivityTimeSeriesWithChunks(
     const start = formatDate(currentStart);
     const end = formatDate(chunkEnd);
     logger.info(`Chunk ${chunkCount}: ${start} to ${end} - ${data.length} records`);
+
+    // Notify caller for incremental upsert
+    if (onChunkComplete && data.length > 0) {
+      await onChunkComplete(data);
+    }
 
     currentStart = new Date(chunkEnd.getTime() + 24 * 60 * 60 * 1000);
   }
