@@ -33,6 +33,10 @@
     "./fitbit": {
       "import": "./src/services/fitbit/index.ts",
       "types": "./src/services/fitbit/index.ts"
+    },
+    "./zaim": {
+      "import": "./src/services/zaim/index.ts",
+      "types": "./src/services/zaim/index.ts"
     }
   },
   "scripts": {
@@ -45,7 +49,8 @@
     "sync:coda": "npx tsx src/services/coda/cli.ts",
     "sync:github-contents": "npx tsx src/services/github-contents/cli.ts",
     "sync:tanita": "npx tsx src/services/tanita-health-planet/cli.ts",
-    "sync:fitbit": "npx tsx src/services/fitbit/cli.ts"
+    "sync:fitbit": "npx tsx src/services/fitbit/cli.ts",
+    "sync:zaim": "npx tsx src/services/zaim/cli.ts"
   },
   "dependencies": {
     "@octokit/rest": "^20.0.0",
