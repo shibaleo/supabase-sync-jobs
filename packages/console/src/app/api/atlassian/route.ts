@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getJiraConfig, saveJiraConfig, deleteJiraConfig } from "@/lib/vault";
+import { getAtlassianConfig, saveAtlassianConfig, deleteAtlassianConfig } from "@/lib/vault";
 
 function maskApiToken(token: string): string {
   if (token.length <= 12) return "****";
@@ -8,9 +8,9 @@ function maskApiToken(token: string): string {
 }
 
 /**
- * Jira API Tokenの有効性を確認
+ * Atlassian API Tokenの有効性を確認（Jira APIで検証）
  */
-async function validateJiraCredentials(
+async function validateAtlassianCredentials(
   email: string,
   apiToken: string,
   domain: string
@@ -64,7 +64,7 @@ export async function GET() {
   }
 
   try {
-    const config = await getJiraConfig();
+    const config = await getAtlassianConfig();
 
     if (!config) {
       return NextResponse.json({ configured: false });
@@ -77,9 +77,9 @@ export async function GET() {
       domain: config.domain,
     });
   } catch (error) {
-    console.error("Failed to get Jira config:", error);
+    console.error("Failed to get Atlassian config:", error);
     return NextResponse.json(
-      { error: "Failed to get Jira config" },
+      { error: "Failed to get Atlassian config" },
       { status: 500 }
     );
   }
@@ -112,7 +112,7 @@ export async function POST(request: Request) {
       .replace(/\/$/, "");
 
     // 認証情報の有効性を検証
-    const validation = await validateJiraCredentials(
+    const validation = await validateAtlassianCredentials(
       email,
       api_token,
       normalizedDomain
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    await saveJiraConfig({
+    await saveAtlassianConfig({
       email,
       api_token,
       domain: normalizedDomain,
@@ -129,9 +129,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to save Jira config:", error);
+    console.error("Failed to save Atlassian config:", error);
     return NextResponse.json(
-      { error: "Failed to save Jira config" },
+      { error: "Failed to save Atlassian config" },
       { status: 500 }
     );
   }
@@ -148,12 +148,12 @@ export async function DELETE() {
   }
 
   try {
-    await deleteJiraConfig();
+    await deleteAtlassianConfig();
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete Jira config:", error);
+    console.error("Failed to delete Atlassian config:", error);
     return NextResponse.json(
-      { error: "Failed to delete Jira config" },
+      { error: "Failed to delete Atlassian config" },
       { status: 500 }
     );
   }

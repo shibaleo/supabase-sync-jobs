@@ -3,7 +3,7 @@ import { ragTools } from "../tools/rag/tools.ts";
 import { getSupabaseTools } from "../tools/supabase/tools.ts";
 import { getNotionTools } from "../tools/notion/tools.ts";
 import { getGoogleCalendarTools } from "../tools/google-calendar/tools.ts";
-import { getJiraTools } from "../tools/jira/tools.ts";
+import { getAtlassianTools } from "../tools/atlassian/tools.ts";
 import { getGitHubTools } from "../tools/github/tools.ts";
 import { getMicrosoftTodoTools } from "../tools/microsoft-todo/tools.ts";
 
@@ -12,7 +12,7 @@ const allTools: ToolDefinition[] = [
   ...getSupabaseTools(),
   ...getNotionTools(),
   ...getGoogleCalendarTools(),
-  ...getJiraTools(),
+  ...getAtlassianTools(),
   ...getGitHubTools(),
   ...getMicrosoftTodoTools(),
 ];

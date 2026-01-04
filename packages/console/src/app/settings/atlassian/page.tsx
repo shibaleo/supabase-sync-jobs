@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { JiraForm } from "./jira-form";
+import { AtlassianForm } from "./atlassian-form";
 
-export default async function JiraSettingsPage() {
+export default async function AtlassianSettingsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -25,11 +25,11 @@ export default async function JiraSettingsPage() {
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100 mb-2">
-          Jira 設定
+          Atlassian 設定
         </h1>
 
         <p className="text-zinc-500 dark:text-zinc-400 mb-6">
-          MCP経由でJiraにアクセスするための認証情報を設定します。
+          MCP経由でJira・Confluenceにアクセスするための認証情報を設定します。
         </p>
 
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
@@ -54,7 +54,7 @@ export default async function JiraSettingsPage() {
           </ol>
         </div>
 
-        <JiraForm />
+        <AtlassianForm />
       </main>
     </div>
   );

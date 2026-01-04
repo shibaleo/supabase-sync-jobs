@@ -2,21 +2,21 @@
 
 import { useState, useEffect } from "react";
 
-interface JiraConfigState {
+interface AtlassianConfigState {
   configured: boolean;
   email: string;
   api_token: string;
   domain: string;
 }
 
-export function JiraForm() {
+export function AtlassianForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [config, setConfig] = useState<JiraConfigState>({
+  const [config, setConfig] = useState<AtlassianConfigState>({
     configured: false,
     email: "",
     api_token: "",
@@ -33,7 +33,7 @@ export function JiraForm() {
 
   async function fetchConfig() {
     try {
-      const res = await fetch("/api/jira");
+      const res = await fetch("/api/atlassian");
       if (!res.ok) throw new Error("Failed to fetch config");
       const data = await res.json();
       setConfig(data);
@@ -61,7 +61,7 @@ export function JiraForm() {
     }
 
     try {
-      const res = await fetch("/api/jira", {
+      const res = await fetch("/api/atlassian", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -87,14 +87,14 @@ export function JiraForm() {
   }
 
   async function handleDelete() {
-    if (!confirm("Jira 設定を削除しますか？")) return;
+    if (!confirm("Atlassian 設定を削除しますか？")) return;
 
     setError(null);
     setSuccess(null);
     setDeleting(true);
 
     try {
-      const res = await fetch("/api/jira", { method: "DELETE" });
+      const res = await fetch("/api/atlassian", { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
 
       setSuccess("設定を削除しました");
@@ -122,7 +122,7 @@ export function JiraForm() {
       {config.configured && (
         <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
           <p className="text-sm text-green-800 dark:text-green-200">
-            設定済み
+            設定済み（Jira + Confluence 共用）
           </p>
           <p className="text-xs text-green-600 dark:text-green-400 mt-1">
             Email: {config.email}
@@ -151,7 +151,7 @@ export function JiraForm() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Jira Domain
+            Atlassian Domain
           </label>
           <input
             type="text"

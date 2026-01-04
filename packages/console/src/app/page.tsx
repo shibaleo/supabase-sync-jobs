@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ServiceList } from "@/components/service-list";
-import { hasGitHubConfig, hasGitHubMcpConfig, hasVoyageConfig, hasNotionConfig, hasJiraConfig } from "@/lib/vault";
+import { hasGitHubConfig, hasGitHubMcpConfig, hasVoyageConfig, hasNotionConfig, hasAtlassianConfig } from "@/lib/vault";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -15,7 +15,7 @@ export default async function Home() {
   const githubMcpConfigured = await hasGitHubMcpConfig();
   const voyageConfigured = await hasVoyageConfig();
   const notionConfigured = await hasNotionConfig();
-  const jiraConfigured = await hasJiraConfig();
+  const atlassianConfigured = await hasAtlassianConfig();
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">
@@ -72,14 +72,14 @@ export default async function Home() {
               </div>
             </a>
             <a
-              href="/settings/jira"
+              href="/settings/atlassian"
               className="p-4 bg-white dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
             >
               <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                Jira
+                Atlassian
               </p>
               <div className="flex items-center gap-1.5 mt-1">
-                {jiraConfigured ? (
+                {atlassianConfigured ? (
                   <>
                     <span className="w-2 h-2 rounded-full bg-green-500" />
                     <span className="text-sm text-green-600 dark:text-green-400">
