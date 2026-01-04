@@ -1,0 +1,39 @@
+# Microsoft To Do Sources
+# =============================================================================
+# raw層テーブルの定義
+# =============================================================================
+
+version: 2
+
+sources:
+  - name: raw_microsoft_todo
+    description: "Microsoft Graph API To Do raw responses"
+    schema: raw
+    tables:
+      - name: microsoft_todo__lists
+        description: "Microsoft To Do task lists"
+        columns:
+          - name: id
+            description: "Primary key (UUID)"
+          - name: source_id
+            description: "Microsoft To Do list ID"
+          - name: data
+            description: "Raw JSON response from Microsoft Graph API"
+          - name: synced_at
+            description: "同期日時"
+          - name: api_version
+            description: "API version (v1.0)"
+
+      - name: microsoft_todo__tasks
+        description: "Microsoft To Do tasks"
+        columns:
+          - name: id
+            description: "Primary key (UUID)"
+          - name: source_id
+            description: "Microsoft To Do task ID"
+          - name: data
+            description: "Raw JSON response from Microsoft Graph API"
+          - name: synced_at
+            description: "同期日時"
+          - name: api_version
+            description: "API version (v1.0)"

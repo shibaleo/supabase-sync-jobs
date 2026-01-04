@@ -1,0 +1,167 @@
+# Microsoft To Do Staging Models
+# =============================================================================
+# staging層モデルの定義とテスト
+# =============================================================================
+
+version: 2
+
+models:
+  - name: stg_microsoft_todo__lists
+    description: "Microsoft To Do task lists (staging)"
+    columns:
+      - name: id
+        description: "Primary key (UUID)"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: list_id
+        description: "Microsoft To Do list ID"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: display_name
+        description: "リスト表示名"
+        data_tests:
+          - not_null
+
+      - name: is_owner
+        description: "自分が所有者かどうか"
+
+      - name: is_shared
+        description: "共有リストかどうか"
+
+      - name: wellknown_list_name
+        description: "既知のリスト名 (defaultList, flaggedEmails, etc.)"
+
+      - name: synced_at
+        description: "同期日時"
+        data_tests:
+          - not_null
+
+      - name: api_version
+        description: "API version (v1.0)"
+
+  - name: stg_microsoft_todo__tasks
+    description: "Microsoft To Do tasks (staging)"
+    columns:
+      - name: id
+        description: "Primary key (UUID)"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: task_id
+        description: "Microsoft To Do task ID"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: list_id
+        description: "所属リストID"
+        data_tests:
+          - not_null
+
+      - name: title
+        description: "タスクタイトル"
+        data_tests:
+          - not_null
+
+      - name: body_content
+        description: "タスク本文"
+
+      - name: body_content_type
+        description: "本文のコンテンツタイプ (text/html)"
+
+      - name: status
+        description: "タスクステータス (notStarted, inProgress, completed, waitingOnOthers, deferred)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['notStarted', 'inProgress', 'completed', 'waitingOnOthers', 'deferred']
+
+      - name: importance
+        description: "重要度 (low, normal, high)"
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['low', 'normal', 'high']
+
+      - name: is_reminder_on
+        description: "リマインダーが有効かどうか"
+
+      - name: has_attachments
+        description: "添付ファイルがあるかどうか"
+
+      - name: categories
+        description: "カテゴリ/タグ (JSON array)"
+
+      - name: due_datetime_local
+        description: "期限日時 (ローカルタイムゾーン)"
+
+      - name: due_timezone
+        description: "期限のタイムゾーン"
+
+      - name: start_datetime_local
+        description: "開始日時 (ローカルタイムゾーン)"
+
+      - name: start_timezone
+        description: "開始のタイムゾーン"
+
+      - name: completed_datetime_local
+        description: "完了日時 (ローカルタイムゾーン)"
+
+      - name: completed_timezone
+        description: "完了のタイムゾーン"
+
+      - name: reminder_datetime_local
+        description: "リマインダー日時 (ローカルタイムゾーン)"
+
+      - name: reminder_timezone
+        description: "リマインダーのタイムゾーン"
+
+      - name: due_at
+        description: "期限日時 (UTC)"
+
+      - name: start_at
+        description: "開始日時 (UTC)"
+
+      - name: completed_at
+        description: "完了日時 (UTC)"
+
+      - name: recurrence_type
+        description: "繰り返しパターンタイプ (daily, weekly, monthly, etc.)"
+
+      - name: recurrence_interval
+        description: "繰り返し間隔"
+
+      - name: recurrence_days_of_week
+        description: "繰り返し曜日 (JSON array)"
+
+      - name: recurrence_range_type
+        description: "繰り返し範囲タイプ"
+
+      - name: recurrence_start_date
+        description: "繰り返し開始日"
+
+      - name: recurrence_end_date
+        description: "繰り返し終了日"
+
+      - name: created_at
+        description: "作成日時"
+        data_tests:
+          - not_null
+
+      - name: updated_at
+        description: "更新日時"
+        data_tests:
+          - not_null
+
+      - name: synced_at
+        description: "同期日時"
+        data_tests:
+          - not_null
+
+      - name: api_version
+        description: "API version (v1.0)"
