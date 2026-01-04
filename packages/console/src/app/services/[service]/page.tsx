@@ -9,6 +9,7 @@ type Params = Promise<{ service: string }>;
 // OAuthコールバックURLのパス定義
 const OAUTH_CALLBACK_PATHS: Partial<Record<ServiceName, string>> = {
   google_calendar: "/api/oauth/google_calendar/callback",
+  microsoft_todo: "/api/oauth/microsoft_todo/callback",
   tanita_health_planet: "/api/oauth/tanita_health_planet/callback",
 };
 
@@ -39,6 +40,10 @@ const SERVICE_FIELDS: Record<ServiceName, { key: string; label: string; type?: s
     { key: "client_id", label: "Client ID", placeholder: "xxxxx.apps.googleusercontent.com" },
     { key: "client_secret", label: "Client Secret", type: "password" },
     { key: "calendar_id", label: "Calendar ID (オプション)", placeholder: "自動検出されます" },
+  ],
+  microsoft_todo: [
+    { key: "client_id", label: "Client ID (Azure App)", placeholder: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", hint: "Azure Portal のアプリ登録で取得" },
+    { key: "client_secret", label: "Client Secret", type: "password", hint: "Azure Portal の証明書とシークレットで作成" },
   ],
   tanita_health_planet: [
     { key: "client_id", label: "Client ID", hint: "Health Planet アプリ管理画面で取得" },

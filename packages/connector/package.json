@@ -37,6 +37,10 @@
     "./zaim": {
       "import": "./src/services/zaim/index.ts",
       "types": "./src/services/zaim/index.ts"
+    },
+    "./microsoft-todo": {
+      "import": "./src/services/microsoft-todo/index.ts",
+      "types": "./src/services/microsoft-todo/index.ts"
     }
   },
   "scripts": {
@@ -50,7 +54,8 @@
     "sync:github-contents": "npx tsx src/services/github-contents/cli.ts",
     "sync:tanita": "npx tsx src/services/tanita-health-planet/cli.ts",
     "sync:fitbit": "npx tsx src/services/fitbit/cli.ts",
-    "sync:zaim": "npx tsx src/services/zaim/cli.ts"
+    "sync:zaim": "npx tsx src/services/zaim/cli.ts",
+    "sync:microsoft-todo": "npx tsx src/services/microsoft-todo/cli.ts"
   },
   "dependencies": {
     "@octokit/rest": "^20.0.0",
