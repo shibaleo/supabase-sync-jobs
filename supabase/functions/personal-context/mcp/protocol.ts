@@ -5,6 +5,7 @@ import { getNotionTools } from "../tools/notion/tools.ts";
 import { getGoogleCalendarTools } from "../tools/google-calendar/tools.ts";
 import { getJiraTools } from "../tools/jira/tools.ts";
 import { getGitHubTools } from "../tools/github/tools.ts";
+import { getMicrosoftTodoTools } from "../tools/microsoft-todo/tools.ts";
 
 const allTools: ToolDefinition[] = [
   ...ragTools,
@@ -13,6 +14,7 @@ const allTools: ToolDefinition[] = [
   ...getGoogleCalendarTools(),
   ...getJiraTools(),
   ...getGitHubTools(),
+  ...getMicrosoftTodoTools(),
 ];
 
 export async function processRequest(
