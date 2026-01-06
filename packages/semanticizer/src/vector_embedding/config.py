@@ -1,9 +1,15 @@
-"""Configuration for embedding module."""
+"""Configuration for vector embedding module."""
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 import psycopg2
+from dotenv import load_dotenv
+
+# Load .env from project root
+_project_root = Path(__file__).resolve().parents[4]
+load_dotenv(_project_root / ".env")
 
 
 @dataclass

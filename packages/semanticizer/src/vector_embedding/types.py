@@ -1,4 +1,4 @@
-"""Type definitions for embedding module."""
+"""Type definitions for vector embedding module."""
 
 from dataclasses import dataclass, field
 from typing import TypedDict

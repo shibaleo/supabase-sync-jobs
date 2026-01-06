@@ -21,11 +21,11 @@ jobs:
 
       - name: Install dependencies
         run: pip install -e .
-        working-directory: packages/analyzer
+        working-directory: packages/semanticizer
 
       - name: Run embedding pipeline
-        run: python -m src.embedding.main
-        working-directory: packages/analyzer
+        run: python -m vector_embedding
+        working-directory: packages/semanticizer
         env:
           DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
           # VOYAGE_API_KEY is retrieved from Supabase Vault

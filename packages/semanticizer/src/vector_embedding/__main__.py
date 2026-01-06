@@ -1,4 +1,4 @@
-"""Entry point for embedding analyzer."""
+"""Entry point for vector embedding module."""
 
 import sys
 
@@ -7,8 +7,8 @@ from .pipeline import EmbeddingPipeline
 
 
 def main() -> int:
-    print("Embedding Analyzer")
-    print("==================")
+    print("Vector Embedding Pipeline")
+    print("=========================")
 
     config = load_config()
     pipeline = EmbeddingPipeline(config)

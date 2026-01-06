@@ -1,4 +1,4 @@
-"""Database operations for embedding module."""
+"""Database operations for vector embedding module."""
 
 import psycopg2
 from psycopg2.extras import RealDictCursor

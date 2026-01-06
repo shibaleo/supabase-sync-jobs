@@ -1,0 +1,36 @@
+{
+  "name": "semanticizer",
+  "projectType": "application",
+  "sourceRoot": "packages/semanticizer/src",
+  "targets": {
+    "embedding": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/semanticizer",
+        "command": ".venv/Scripts/python -m vector_embedding"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/semanticizer",
+        "command": ".venv/Scripts/pytest tests/"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/semanticizer",
+        "command": ".venv/Scripts/ruff check src/"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/semanticizer",
+        "command": ".venv/Scripts/mypy src/"
+      }
+    }
+  },
+  "tags": ["scope:semanticizer", "type:app", "lang:python"]
+}
