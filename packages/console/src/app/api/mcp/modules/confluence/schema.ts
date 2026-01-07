@@ -242,7 +242,12 @@ async function getPage(params: Record<string, unknown>, userId: string): Promise
 
 async function createPage(params: Record<string, unknown>, userId: string): Promise<McpToolResult> {
   try {
-    const p = await api.confluenceCreatePage(userId, params as api.ConfluenceCreatePageParams);
+    const p = await api.confluenceCreatePage(userId, {
+      spaceId: params.spaceId as string,
+      title: params.title as string,
+      body: params.body as string,
+      parentId: params.parentId as string | undefined,
+    });
     return formatResult({ created: true, id: p.id, title: p.title, version: p.version?.number });
   } catch (error) {
     return formatError(error);
@@ -251,7 +256,12 @@ async function createPage(params: Record<string, unknown>, userId: string): Prom
 
 async function updatePage(params: Record<string, unknown>, userId: string): Promise<McpToolResult> {
   try {
-    const p = await api.confluenceUpdatePage(userId, params as api.ConfluenceUpdatePageParams);
+    const p = await api.confluenceUpdatePage(userId, {
+      pageId: params.pageId as string,
+      title: params.title as string,
+      body: params.body as string,
+      version: params.version as number,
+    });
     return formatResult({ updated: true, id: p.id, title: p.title, version: p.version?.number });
   } catch (error) {
     return formatError(error);

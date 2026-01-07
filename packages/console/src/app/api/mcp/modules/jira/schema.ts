@@ -270,7 +270,16 @@ async function getIssue(params: Record<string, unknown>, userId: string): Promis
 
 async function createIssue(params: Record<string, unknown>, userId: string): Promise<McpToolResult> {
   try {
-    const issue = await api.jiraCreateIssue(userId, params as api.JiraCreateIssueParams);
+    const issue = await api.jiraCreateIssue(userId, {
+      projectKey: params.projectKey as string,
+      issueType: params.issueType as string,
+      summary: params.summary as string,
+      description: params.description as string | undefined,
+      assigneeAccountId: params.assigneeAccountId as string | undefined,
+      priority: params.priority as string | undefined,
+      labels: params.labels as string[] | undefined,
+      parentKey: params.parentKey as string | undefined,
+    });
     return formatResult({ created: true, key: issue.key, id: issue.id, self: issue.self });
   } catch (error) {
     return formatError(error);
