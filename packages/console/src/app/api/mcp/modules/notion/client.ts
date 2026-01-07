@@ -22,8 +22,7 @@ async function getNotionToken(): Promise<string> {
 
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
-    .schema("console")
-    .rpc("get_service_secret", { service_name: "notion" });
+    .rpc("console.get_service_secret", { service_name: "notion" });
 
   if (error) {
     throw new Error(`Notion vault error: ${error.message}`);

@@ -73,7 +73,7 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
     updatedCredentials.refresh_token = data.refresh_token;
   }
 
-  await supabase.schema("console").rpc("upsert_service_secret", {
+  await supabase.rpc("console.upsert_service_secret", {
     service_name: "microsoft_todo",
     secret_data: updatedCredentials,
     secret_description: "Microsoft To Do credentials",
@@ -105,8 +105,7 @@ async function getAccessToken(): Promise<string> {
   // Load from vault
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
-    .schema("console")
-    .rpc("get_service_secret", { service_name: "microsoft_todo" });
+    .rpc("console.get_service_secret", { service_name: "microsoft_todo" });
 
   if (error || !data) {
     throw new Error(`Microsoft To Do credentials not found in vault: ${error?.message || 'no data'}`);

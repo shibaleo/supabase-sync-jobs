@@ -58,7 +58,7 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
   const supabase = getSupabaseClient();
   const newExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-  await supabase.schema("console").rpc("upsert_service_secret", {
+  await supabase.rpc("console.upsert_service_secret", {
     service_name: "google_calendar",
     secret_data: {
       ...credentials,
@@ -98,8 +98,7 @@ async function getAccessToken(): Promise<{
   // Load from vault
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
-    .schema("console")
-    .rpc("get_service_secret", { service_name: "google_calendar" });
+    .rpc("console.get_service_secret", { service_name: "google_calendar" });
 
   if (error || !data) {
     throw new Error(`Google Calendar credentials not found in vault: ${error?.message || 'no data'}`);
