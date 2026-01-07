@@ -26,10 +26,14 @@ export async function authenticateRequest(
   }
 
   // 2. ユーザートークン検証（OAuth 2.1）
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_ANON_KEY!
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { userId: null, error: "Supabase configuration missing" };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
   const {
     data: { user },
