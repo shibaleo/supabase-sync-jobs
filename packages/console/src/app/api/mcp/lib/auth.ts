@@ -93,7 +93,7 @@ export async function authenticateRequest(
 
 export function createUnauthorizedResponse(): Response {
   // 新エンドポイント用の .well-known を指す
-  const resourceMetadataUrl = `${process.env.NEXT_PUBLIC_VERCEL_URL || "https://dwhbi-console.vercel.app"}/api/mcp/.well-known/oauth-protected-resource`;
+  const resourceMetadataUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/mcp/.well-known/oauth-protected-resource`;
 
   return new Response(JSON.stringify({ error: "Unauthorized" }), {
     status: 401,
