@@ -109,7 +109,7 @@ async function getAccessToken(): Promise<string> {
     .rpc("get_service_secret", { service_name: "microsoft_todo" });
 
   if (error || !data) {
-    throw new Error("Microsoft To Do credentials not found in vault");
+    throw new Error(`Microsoft To Do credentials not found in vault: ${error?.message || 'no data'}`);
   }
 
   const credentials = data as Credentials;

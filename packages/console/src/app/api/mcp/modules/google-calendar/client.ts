@@ -102,7 +102,7 @@ async function getAccessToken(): Promise<{
     .rpc("get_service_secret", { service_name: "google_calendar" });
 
   if (error || !data) {
-    throw new Error("Google Calendar credentials not found in vault");
+    throw new Error(`Google Calendar credentials not found in vault: ${error?.message || 'no data'}`);
   }
 
   const credentials = data as Credentials;

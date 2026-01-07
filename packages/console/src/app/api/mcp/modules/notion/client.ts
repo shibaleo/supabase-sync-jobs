@@ -25,8 +25,11 @@ async function getNotionToken(): Promise<string> {
     .schema("console")
     .rpc("get_service_secret", { service_name: "notion" });
 
-  if (error || !data?.api_token) {
-    throw new Error("Notion API token not found in vault");
+  if (error) {
+    throw new Error(`Notion vault error: ${error.message}`);
+  }
+  if (!data?.api_token) {
+    throw new Error(`Notion API token not found in vault data: ${JSON.stringify(data)}`);
   }
 
   cachedToken = data.api_token as string;
