@@ -21,9 +21,14 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
-  // SSE stream（必要に応じて実装）
+  // SSE stream
   const accept = req.headers.get("accept") || "";
   if (accept.includes("text/event-stream")) {
+    // 認証チェック - 未認証なら401を返してOAuthフローを開始させる
+    const { userId } = await authenticateRequest(req);
+    if (!userId) {
+      return createUnauthorizedResponse();
+    }
     return handleSseStream(req);
   }
   return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
