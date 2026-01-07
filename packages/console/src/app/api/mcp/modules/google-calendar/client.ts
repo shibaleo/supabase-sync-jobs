@@ -1,19 +1,10 @@
 // Google Calendar API Client for MCP
 // Uses OAuth2 tokens stored in Supabase Vault
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceSecret, upsertServiceSecret } from "@/lib/supabase/service-role";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
-
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase configuration missing");
-  }
-  return createClient(supabaseUrl, supabaseKey);
-}
 
 interface Credentials {
   client_id: string;
@@ -55,20 +46,19 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
   const data = (await response.json()) as TokenResponse;
 
   // Update vault with new token
-  const supabase = getSupabaseClient();
   const newExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-  await supabase.rpc("console.upsert_service_secret", {
-    service_name: "google_calendar",
-    secret_data: {
+  await upsertServiceSecret(
+    "google_calendar",
+    {
       ...credentials,
       access_token: data.access_token,
       scope: data.scope,
       _expires_at: newExpiresAt.toISOString(),
       _auth_type: "oauth",
     },
-    secret_description: "Google Calendar credentials",
-  });
+    "Google Calendar credentials"
+  );
 
   // Update cache
   cachedCredentials = { ...credentials, access_token: data.access_token };
@@ -96,15 +86,13 @@ async function getAccessToken(): Promise<{
   }
 
   // Load from vault
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .rpc("console.get_service_secret", { service_name: "google_calendar" });
+  const data = await getServiceSecret("google_calendar");
 
-  if (error || !data) {
-    throw new Error(`Google Calendar credentials not found in vault: ${error?.message || 'no data'}`);
+  if (!data) {
+    throw new Error("Google Calendar credentials not found in vault");
   }
 
-  const credentials = data as Credentials;
+  const credentials = data as unknown as Credentials;
 
   if (!credentials.client_id || !credentials.client_secret) {
     throw new Error("Missing client_id or client_secret");

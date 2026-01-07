@@ -1,20 +1,11 @@
 // Microsoft To Do API Client for MCP
 // Uses OAuth2 tokens stored in Supabase Vault
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceSecret, upsertServiceSecret } from "@/lib/supabase/service-role";
 
 const MS_TOKEN_URL =
   "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const GRAPH_API_BASE = "https://graph.microsoft.com/v1.0";
-
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase configuration missing");
-  }
-  return createClient(supabaseUrl, supabaseKey);
-}
 
 interface Credentials {
   client_id: string;
@@ -57,7 +48,6 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
   const data = (await response.json()) as TokenResponse;
 
   // Update vault with new token
-  const supabase = getSupabaseClient();
   const newExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
   const updatedCredentials: Record<string, unknown> = {
@@ -73,11 +63,11 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
     updatedCredentials.refresh_token = data.refresh_token;
   }
 
-  await supabase.rpc("console.upsert_service_secret", {
-    service_name: "microsoft_todo",
-    secret_data: updatedCredentials,
-    secret_description: "Microsoft To Do credentials",
-  });
+  await upsertServiceSecret(
+    "microsoft_todo",
+    updatedCredentials,
+    "Microsoft To Do credentials"
+  );
 
   // Update cache
   cachedCredentials = {
@@ -103,15 +93,13 @@ async function getAccessToken(): Promise<string> {
   }
 
   // Load from vault
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .rpc("console.get_service_secret", { service_name: "microsoft_todo" });
+  const data = await getServiceSecret("microsoft_todo");
 
-  if (error || !data) {
-    throw new Error(`Microsoft To Do credentials not found in vault: ${error?.message || 'no data'}`);
+  if (!data) {
+    throw new Error("Microsoft To Do credentials not found in vault");
   }
 
-  const credentials = data as Credentials;
+  const credentials = data as unknown as Credentials;
 
   if (!credentials.client_id || !credentials.client_secret) {
     throw new Error("Missing client_id or client_secret");

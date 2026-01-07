@@ -1,34 +1,20 @@
 // Notion API Client
 // API Version: 2022-06-28 (stable, widely compatible)
 
-import { createClient } from "@supabase/supabase-js";
+import { getServiceSecret } from "@/lib/supabase/service-role";
 
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
-
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Supabase configuration missing");
-  }
-  return createClient(supabaseUrl, supabaseKey);
-}
 
 let cachedToken: string | null = null;
 
 async function getNotionToken(): Promise<string> {
   if (cachedToken) return cachedToken;
 
-  const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .rpc("console.get_service_secret", { service_name: "notion" });
+  const data = await getServiceSecret("notion");
 
-  if (error) {
-    throw new Error(`Notion vault error: ${error.message}`);
-  }
   if (!data?.api_token) {
-    throw new Error(`Notion API token not found in vault data: ${JSON.stringify(data)}`);
+    throw new Error(`Notion API token not found in vault`);
   }
 
   cachedToken = data.api_token as string;
