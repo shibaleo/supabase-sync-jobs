@@ -13,14 +13,15 @@ import { moduleRegistry } from "../modules/registry";
 const META_TOOLS = [
   {
     name: "get_module_schema",
-    description: "モジュールのツール定義を取得。",
+    description:
+      "モジュールのツール定義を取得。重要: 各モジュールにつき1セッション1回のみ呼び出すこと。スキーマは会話履歴にキャッシュされるため、同一モジュールへの2回目以降の呼び出しはcall_module_toolを直接使用すること。",
     inputSchema: {
       type: "object",
       properties: {
         module: {
           type: "string",
           description:
-            "モジュール名（google_calendar, microsoft_todo, notion）",
+            "モジュール名（google_calendar, microsoft_todo, notion, rag, supabase, jira, confluence, github）",
         },
       },
       required: ["module"],
@@ -34,6 +35,11 @@ const META_TOOLS = [
 - google_calendar: 予定の取得・作成
 - microsoft_todo: タスク管理
 - notion: ページ・データベース操作
+- rag: ドキュメント検索（セマンティック検索、キーワード検索）
+- supabase: DB操作、マイグレーション、ログ、ストレージ
+- jira: Issue/Project操作（検索、作成、更新、コメント）
+- confluence: Wiki操作（スペース、ページ、検索、ラベル）
+- github: リポジトリ、Issue、PR、Actions、検索
 
 【使い方】
 1. get_module_schema(module) でツール一覧とパラメータを確認
