@@ -4,11 +4,15 @@
  */
 import { NextResponse } from "next/server";
 
+const BASE_URL = process.env.NEXT_PUBLIC_VERCEL_URL
+  ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+  : "http://localhost:3000";
+
 export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
   const metadata = {
-    resource: `${supabaseUrl}/functions/v1/personal-context`,
+    resource: `${BASE_URL}/api/mcp`,
     // Supabase Auth serves /.well-known/oauth-authorization-server at /auth/v1
     authorization_servers: [`${supabaseUrl}/auth/v1`],
     scopes_supported: ["openid", "profile", "email"],
@@ -19,6 +23,7 @@ export async function GET() {
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": "public, max-age=3600",
+      "Access-Control-Allow-Origin": "*",
     },
   });
 }
