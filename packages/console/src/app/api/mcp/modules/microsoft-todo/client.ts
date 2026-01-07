@@ -1,7 +1,7 @@
 // Microsoft To Do API Client for MCP
-// Uses OAuth2 tokens stored in Supabase Vault
+// Uses OAuth2 tokens stored in Supabase Vault (multi-tenant)
 
-import { getServiceSecret, upsertServiceSecret } from "@/lib/supabase/service-role";
+import { getUserSecret, upsertUserSecret } from "../../lib/vault";
 
 const MS_TOKEN_URL =
   "https://login.microsoftonline.com/common/oauth2/v2.0/token";
@@ -23,11 +23,10 @@ interface TokenResponse {
   scope: string;
 }
 
-// Cache
-let cachedCredentials: Credentials | null = null;
-let cachedExpiresAt: Date | null = null;
+// Cache per user
+const credentialsCache = new Map<string, { credentials: Credentials; expiresAt: Date }>();
 
-async function refreshAccessToken(credentials: Credentials): Promise<string> {
+async function refreshAccessToken(userId: string, credentials: Credentials): Promise<string> {
   const response = await fetch(MS_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -63,40 +62,42 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
     updatedCredentials.refresh_token = data.refresh_token;
   }
 
-  await upsertServiceSecret(
+  await upsertUserSecret(
+    userId,
     "microsoft_todo",
     updatedCredentials,
     "Microsoft To Do credentials"
   );
 
   // Update cache
-  cachedCredentials = {
+  const updatedCreds = {
     ...credentials,
     access_token: data.access_token,
     refresh_token: data.refresh_token || credentials.refresh_token,
   };
-  cachedExpiresAt = newExpiresAt;
+  credentialsCache.set(userId, { credentials: updatedCreds, expiresAt: newExpiresAt });
 
   return data.access_token;
 }
 
-async function getAccessToken(): Promise<string> {
+async function getAccessToken(userId: string): Promise<string> {
   const THRESHOLD_MINUTES = 5;
 
   // Check cache
-  if (cachedCredentials && cachedExpiresAt) {
+  const cached = credentialsCache.get(userId);
+  if (cached) {
     const minutesUntilExpiry =
-      (cachedExpiresAt.getTime() - Date.now()) / 1000 / 60;
+      (cached.expiresAt.getTime() - Date.now()) / 1000 / 60;
     if (minutesUntilExpiry > THRESHOLD_MINUTES) {
-      return cachedCredentials.access_token;
+      return cached.credentials.access_token;
     }
   }
 
   // Load from vault
-  const data = await getServiceSecret("microsoft_todo");
+  const data = await getUserSecret(userId, "microsoft_todo");
 
   if (!data) {
-    throw new Error("Microsoft To Do credentials not found in vault");
+    throw new Error(`Microsoft To Do credentials not found in vault for user ${userId}`);
   }
 
   const credentials = data as unknown as Credentials;
@@ -121,10 +122,9 @@ async function getAccessToken(): Promise<string> {
     (expiresAt.getTime() - Date.now()) / 1000 / 60 <= THRESHOLD_MINUTES;
 
   if (needsRefresh) {
-    accessToken = await refreshAccessToken(credentials);
+    accessToken = await refreshAccessToken(userId, credentials);
   } else {
-    cachedCredentials = credentials;
-    cachedExpiresAt = expiresAt;
+    credentialsCache.set(userId, { credentials, expiresAt: expiresAt! });
   }
 
   return accessToken;
@@ -137,12 +137,13 @@ export interface TodoApiError {
 }
 
 async function todoRequest<T>(
+  userId: string,
   method: string,
   endpoint: string,
   body?: Record<string, unknown>,
   retried = false
 ): Promise<T> {
-  const accessToken = await getAccessToken();
+  const accessToken = await getAccessToken(userId);
   const url = endpoint.startsWith("http")
     ? endpoint
     : `${GRAPH_API_BASE}${endpoint}`;
@@ -160,9 +161,8 @@ async function todoRequest<T>(
     // Handle token expiry
     if (response.status === 401 && !retried) {
       // Force refresh token
-      cachedCredentials = null;
-      cachedExpiresAt = null;
-      return todoRequest<T>(method, endpoint, body, true);
+      credentialsCache.delete(userId);
+      return todoRequest<T>(userId, method, endpoint, body, true);
     }
 
     const errorData = await response.json().catch(() => ({}));
@@ -253,12 +253,12 @@ export interface TodoTaskResponse {
 // Lists
 // =============================================================================
 
-export async function listLists(): Promise<TodoList[]> {
+export async function listLists(userId: string): Promise<TodoList[]> {
   const allLists: TodoList[] = [];
   let nextLink: string | undefined = "/me/todo/lists";
 
   while (nextLink) {
-    const res: TodoListResponse = await todoRequest<TodoListResponse>("GET", nextLink);
+    const res: TodoListResponse = await todoRequest<TodoListResponse>(userId, "GET", nextLink);
     if (res.value) {
       allLists.push(...res.value);
     }
@@ -268,31 +268,32 @@ export async function listLists(): Promise<TodoList[]> {
   return allLists;
 }
 
-export async function getList(listId: string): Promise<TodoList> {
-  return todoRequest<TodoList>("GET", `/me/todo/lists/${listId}`);
+export async function getList(userId: string, listId: string): Promise<TodoList> {
+  return todoRequest<TodoList>(userId, "GET", `/me/todo/lists/${listId}`);
 }
 
 export interface CreateListParams {
   displayName: string;
 }
 
-export async function createList(params: CreateListParams): Promise<TodoList> {
-  return todoRequest<TodoList>("POST", "/me/todo/lists", {
+export async function createList(userId: string, params: CreateListParams): Promise<TodoList> {
+  return todoRequest<TodoList>(userId, "POST", "/me/todo/lists", {
     displayName: params.displayName,
   });
 }
 
 export async function updateList(
+  userId: string,
   listId: string,
   displayName: string
 ): Promise<TodoList> {
-  return todoRequest<TodoList>("PATCH", `/me/todo/lists/${listId}`, {
+  return todoRequest<TodoList>(userId, "PATCH", `/me/todo/lists/${listId}`, {
     displayName,
   });
 }
 
-export async function deleteList(listId: string): Promise<void> {
-  await todoRequest<void>("DELETE", `/me/todo/lists/${listId}`);
+export async function deleteList(userId: string, listId: string): Promise<void> {
+  await todoRequest<void>(userId, "DELETE", `/me/todo/lists/${listId}`);
 }
 
 // =============================================================================
@@ -305,7 +306,7 @@ export interface ListTasksParams {
   top?: number;
 }
 
-export async function listTasks(params: ListTasksParams): Promise<TodoTask[]> {
+export async function listTasks(userId: string, params: ListTasksParams): Promise<TodoTask[]> {
   const { listId, filter, top } = params;
 
   const query = new URLSearchParams();
@@ -316,7 +317,7 @@ export async function listTasks(params: ListTasksParams): Promise<TodoTask[]> {
   let nextLink: string | undefined = `/me/todo/lists/${listId}/tasks${query.toString() ? `?${query}` : ""}`;
 
   while (nextLink) {
-    const res: TodoTaskResponse = await todoRequest<TodoTaskResponse>("GET", nextLink);
+    const res: TodoTaskResponse = await todoRequest<TodoTaskResponse>(userId, "GET", nextLink);
     if (res.value) {
       allTasks.push(...res.value);
     }
@@ -327,10 +328,12 @@ export async function listTasks(params: ListTasksParams): Promise<TodoTask[]> {
 }
 
 export async function getTask(
+  userId: string,
   listId: string,
   taskId: string
 ): Promise<TodoTask> {
   return todoRequest<TodoTask>(
+    userId,
     "GET",
     `/me/todo/lists/${listId}/tasks/${taskId}`
   );
@@ -354,7 +357,7 @@ export interface CreateTaskParams {
   isReminderOn?: boolean;
 }
 
-export async function createTask(params: CreateTaskParams): Promise<TodoTask> {
+export async function createTask(userId: string, params: CreateTaskParams): Promise<TodoTask> {
   const {
     listId,
     title,
@@ -379,6 +382,7 @@ export async function createTask(params: CreateTaskParams): Promise<TodoTask> {
   if (isReminderOn !== undefined) taskBody.isReminderOn = isReminderOn;
 
   return todoRequest<TodoTask>(
+    userId,
     "POST",
     `/me/todo/lists/${listId}/tasks`,
     taskBody
@@ -404,7 +408,7 @@ export interface UpdateTaskParams {
   isReminderOn?: boolean;
 }
 
-export async function updateTask(params: UpdateTaskParams): Promise<TodoTask> {
+export async function updateTask(userId: string, params: UpdateTaskParams): Promise<TodoTask> {
   const {
     listId,
     taskId,
@@ -432,6 +436,7 @@ export async function updateTask(params: UpdateTaskParams): Promise<TodoTask> {
   if (isReminderOn !== undefined) taskBody.isReminderOn = isReminderOn;
 
   return todoRequest<TodoTask>(
+    userId,
     "PATCH",
     `/me/todo/lists/${listId}/tasks/${taskId}`,
     taskBody
@@ -439,10 +444,11 @@ export async function updateTask(params: UpdateTaskParams): Promise<TodoTask> {
 }
 
 export async function completeTask(
+  userId: string,
   listId: string,
   taskId: string
 ): Promise<TodoTask> {
-  return updateTask({
+  return updateTask(userId, {
     listId,
     taskId,
     status: "completed",
@@ -450,8 +456,9 @@ export async function completeTask(
 }
 
 export async function deleteTask(
+  userId: string,
   listId: string,
   taskId: string
 ): Promise<void> {
-  await todoRequest<void>("DELETE", `/me/todo/lists/${listId}/tasks/${taskId}`);
+  await todoRequest<void>(userId, "DELETE", `/me/todo/lists/${listId}/tasks/${taskId}`);
 }

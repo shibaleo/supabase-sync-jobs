@@ -316,7 +316,7 @@ const tools: ToolDefinition[] = [
 ];
 
 // Handlers
-const notionSearch: ToolHandler = async (params, _userId) => {
+const notionSearch: ToolHandler = async (params, userId) => {
   try {
     const { query, filter_type, page_size = 10 } = params as {
       query?: string;
@@ -333,7 +333,7 @@ const notionSearch: ToolHandler = async (params, _userId) => {
       searchParams.filter = { property: "object", value: filter_type };
     }
 
-    const result = await notion.search(searchParams);
+    const result = await notion.search(userId, searchParams);
     return formatResult({
       results: result.results,
       has_more: result.has_more,
@@ -344,23 +344,23 @@ const notionSearch: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionGetPage: ToolHandler = async (params, _userId) => {
+const notionGetPage: ToolHandler = async (params, userId) => {
   try {
     const { page_id } = params as { page_id: string };
-    const page = await notion.retrievePage(page_id);
+    const page = await notion.retrievePage(userId, page_id);
     return formatResult(page);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const notionGetPageContent: ToolHandler = async (params, _userId) => {
+const notionGetPageContent: ToolHandler = async (params, userId) => {
   try {
     const { page_id, page_size = 50 } = params as {
       page_id: string;
       page_size?: number;
     };
-    const blocks = await notion.retrieveBlockChildren(page_id, {
+    const blocks = await notion.retrieveBlockChildren(userId, page_id, {
       page_size: Math.min(page_size, 100),
     });
     return formatResult({
@@ -373,7 +373,7 @@ const notionGetPageContent: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionCreatePage: ToolHandler = async (params, _userId) => {
+const notionCreatePage: ToolHandler = async (params, userId) => {
   try {
     const { parent_page_id, parent_database_id, title, properties } =
       params as {
@@ -406,7 +406,7 @@ const notionCreatePage: ToolHandler = async (params, _userId) => {
           title: { title: [{ text: { content: title } }] },
         };
 
-    const page = await notion.createPage({
+    const page = await notion.createPage(userId, {
       parent,
       properties: pageProperties,
     });
@@ -417,30 +417,30 @@ const notionCreatePage: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionUpdatePage: ToolHandler = async (params, _userId) => {
+const notionUpdatePage: ToolHandler = async (params, userId) => {
   try {
     const { page_id, properties } = params as {
       page_id: string;
       properties: Record<string, unknown>;
     };
-    const page = await notion.updatePage(page_id, properties);
+    const page = await notion.updatePage(userId, page_id, properties);
     return formatResult(page);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const notionGetDatabase: ToolHandler = async (params, _userId) => {
+const notionGetDatabase: ToolHandler = async (params, userId) => {
   try {
     const { database_id } = params as { database_id: string };
-    const database = await notion.retrieveDatabase(database_id);
+    const database = await notion.retrieveDatabase(userId, database_id);
     return formatResult(database);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const notionQueryDatabase: ToolHandler = async (params, _userId) => {
+const notionQueryDatabase: ToolHandler = async (params, userId) => {
   try {
     const { database_id, filter, sorts, page_size = 10 } = params as {
       database_id: string;
@@ -453,7 +453,7 @@ const notionQueryDatabase: ToolHandler = async (params, _userId) => {
       page_size?: number;
     };
 
-    const result = await notion.queryDatabase(database_id, {
+    const result = await notion.queryDatabase(userId, database_id, {
       filter,
       sorts,
       page_size: Math.min(page_size, 100),
@@ -469,7 +469,7 @@ const notionQueryDatabase: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionAppendBlocks: ToolHandler = async (params, _userId) => {
+const notionAppendBlocks: ToolHandler = async (params, userId) => {
   try {
     const { block_id, blocks } = params as {
       block_id: string;
@@ -565,6 +565,7 @@ const notionAppendBlocks: ToolHandler = async (params, _userId) => {
     });
 
     const result = await notion.appendBlockChildren(
+      userId,
       block_id,
       notionBlocks as notion.NotionBlock[]
     );
@@ -577,23 +578,23 @@ const notionAppendBlocks: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionDeleteBlock: ToolHandler = async (params, _userId) => {
+const notionDeleteBlock: ToolHandler = async (params, userId) => {
   try {
     const { block_id } = params as { block_id: string };
-    const block = await notion.deleteBlock(block_id);
+    const block = await notion.deleteBlock(userId, block_id);
     return formatResult({ deleted: true, block });
   } catch (error) {
     return formatError(error);
   }
 };
 
-const notionListComments: ToolHandler = async (params, _userId) => {
+const notionListComments: ToolHandler = async (params, userId) => {
   try {
     const { block_id, page_size = 50 } = params as {
       block_id: string;
       page_size?: number;
     };
-    const result = await notion.listComments(block_id, {
+    const result = await notion.listComments(userId, block_id, {
       page_size: Math.min(page_size, 100),
     });
     return formatResult({
@@ -606,10 +607,10 @@ const notionListComments: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionAddComment: ToolHandler = async (params, _userId) => {
+const notionAddComment: ToolHandler = async (params, userId) => {
   try {
     const { page_id, content } = params as { page_id: string; content: string };
-    const comment = await notion.createComment({
+    const comment = await notion.createComment(userId, {
       parent: { page_id },
       rich_text: [{ text: { content } }],
     });
@@ -619,10 +620,10 @@ const notionAddComment: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionListUsers: ToolHandler = async (params, _userId) => {
+const notionListUsers: ToolHandler = async (params, userId) => {
   try {
     const { page_size = 50 } = params as { page_size?: number };
-    const result = await notion.listUsers({
+    const result = await notion.listUsers(userId, {
       page_size: Math.min(page_size, 100),
     });
     return formatResult({
@@ -635,19 +636,19 @@ const notionListUsers: ToolHandler = async (params, _userId) => {
   }
 };
 
-const notionGetUser: ToolHandler = async (params, _userId) => {
+const notionGetUser: ToolHandler = async (params, userId) => {
   try {
     const { user_id } = params as { user_id: string };
-    const user = await notion.retrieveUser(user_id);
+    const user = await notion.retrieveUser(userId, user_id);
     return formatResult(user);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const notionGetBotUser: ToolHandler = async (_params, _userId) => {
+const notionGetBotUser: ToolHandler = async (_params, userId) => {
   try {
-    const user = await notion.retrieveBotUser();
+    const user = await notion.retrieveBotUser(userId);
     return formatResult(user);
   } catch (error) {
     return formatError(error);

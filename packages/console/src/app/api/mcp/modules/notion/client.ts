@@ -1,24 +1,27 @@
 // Notion API Client
 // API Version: 2022-06-28 (stable, widely compatible)
 
-import { getServiceSecret } from "@/lib/supabase/service-role";
+import { getUserSecret } from "../../lib/vault";
 
 const NOTION_API_BASE = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
 
-let cachedToken: string | null = null;
+// Token cache per user
+const tokenCache = new Map<string, string>();
 
-async function getNotionToken(): Promise<string> {
-  if (cachedToken) return cachedToken;
+async function getNotionToken(userId: string): Promise<string> {
+  const cached = tokenCache.get(userId);
+  if (cached) return cached;
 
-  const data = await getServiceSecret("notion");
+  const data = await getUserSecret(userId, "notion");
 
   if (!data?.api_token) {
-    throw new Error(`Notion API token not found in vault`);
+    throw new Error(`Notion API token not found in vault for user ${userId}`);
   }
 
-  cachedToken = data.api_token as string;
-  return cachedToken;
+  const token = data.api_token as string;
+  tokenCache.set(userId, token);
+  return token;
 }
 
 export interface NotionApiError {
@@ -28,11 +31,12 @@ export interface NotionApiError {
 }
 
 export async function notionRequest<T>(
+  userId: string,
   method: string,
   endpoint: string,
   body?: Record<string, unknown>
 ): Promise<T> {
-  const token = await getNotionToken();
+  const token = await getNotionToken(userId);
   const url = `${NOTION_API_BASE}${endpoint}`;
 
   const response = await fetch(url, {
@@ -71,36 +75,38 @@ export interface SearchParams {
   page_size?: number;
 }
 
-export async function search(params: SearchParams) {
-  return notionRequest<NotionListResponse>("POST", "/search", params as unknown as Record<string, unknown>);
+export async function search(userId: string, params: SearchParams) {
+  return notionRequest<NotionListResponse>(userId, "POST", "/search", params as unknown as Record<string, unknown>);
 }
 
 // =============================================================================
 // Pages
 // =============================================================================
-export async function retrievePage(pageId: string) {
-  return notionRequest<NotionPage>("GET", `/pages/${pageId}`);
+export async function retrievePage(userId: string, pageId: string) {
+  return notionRequest<NotionPage>(userId, "GET", `/pages/${pageId}`);
 }
 
-export async function createPage(params: {
+export async function createPage(userId: string, params: {
   parent: { page_id?: string; database_id?: string };
   properties: Record<string, unknown>;
   children?: NotionBlock[];
 }) {
-  return notionRequest<NotionPage>("POST", "/pages", params);
+  return notionRequest<NotionPage>(userId, "POST", "/pages", params);
 }
 
 export async function updatePage(
+  userId: string,
   pageId: string,
   properties: Record<string, unknown>
 ) {
-  return notionRequest<NotionPage>("PATCH", `/pages/${pageId}`, { properties });
+  return notionRequest<NotionPage>(userId, "PATCH", `/pages/${pageId}`, { properties });
 }
 
 // =============================================================================
 // Databases
 // =============================================================================
 export async function queryDatabase(
+  userId: string,
   databaseId: string,
   params?: {
     filter?: Record<string, unknown>;
@@ -114,20 +120,22 @@ export async function queryDatabase(
   }
 ) {
   return notionRequest<NotionListResponse>(
+    userId,
     "POST",
     `/databases/${databaseId}/query`,
     params || {}
   );
 }
 
-export async function retrieveDatabase(databaseId: string) {
-  return notionRequest<NotionDatabase>("GET", `/databases/${databaseId}`);
+export async function retrieveDatabase(userId: string, databaseId: string) {
+  return notionRequest<NotionDatabase>(userId, "GET", `/databases/${databaseId}`);
 }
 
 // =============================================================================
 // Blocks
 // =============================================================================
 export async function retrieveBlockChildren(
+  userId: string,
   blockId: string,
   params?: { start_cursor?: string; page_size?: number }
 ) {
@@ -136,50 +144,54 @@ export async function retrieveBlockChildren(
   if (params?.page_size) query.set("page_size", params.page_size.toString());
   const queryStr = query.toString();
   return notionRequest<NotionListResponse>(
+    userId,
     "GET",
     `/blocks/${blockId}/children${queryStr ? `?${queryStr}` : ""}`
   );
 }
 
 export async function appendBlockChildren(
+  userId: string,
   blockId: string,
   children: NotionBlock[]
 ) {
   return notionRequest<NotionListResponse>(
+    userId,
     "PATCH",
     `/blocks/${blockId}/children`,
     { children }
   );
 }
 
-export async function deleteBlock(blockId: string) {
-  return notionRequest<NotionBlock>("DELETE", `/blocks/${blockId}`);
+export async function deleteBlock(userId: string, blockId: string) {
+  return notionRequest<NotionBlock>(userId, "DELETE", `/blocks/${blockId}`);
 }
 
 // =============================================================================
 // Comments
 // =============================================================================
 export async function listComments(
+  userId: string,
   blockId: string,
   params?: { start_cursor?: string; page_size?: number }
 ) {
   const query = new URLSearchParams({ block_id: blockId });
   if (params?.start_cursor) query.set("start_cursor", params.start_cursor);
   if (params?.page_size) query.set("page_size", params.page_size.toString());
-  return notionRequest<NotionListResponse>("GET", `/comments?${query}`);
+  return notionRequest<NotionListResponse>(userId, "GET", `/comments?${query}`);
 }
 
-export async function createComment(params: {
+export async function createComment(userId: string, params: {
   parent: { page_id: string };
   rich_text: Array<{ text: { content: string } }>;
 }) {
-  return notionRequest<NotionComment>("POST", "/comments", params);
+  return notionRequest<NotionComment>(userId, "POST", "/comments", params);
 }
 
 // =============================================================================
 // Users
 // =============================================================================
-export async function listUsers(params?: {
+export async function listUsers(userId: string, params?: {
   start_cursor?: string;
   page_size?: number;
 }) {
@@ -188,17 +200,18 @@ export async function listUsers(params?: {
   if (params?.page_size) query.set("page_size", params.page_size.toString());
   const queryStr = query.toString();
   return notionRequest<NotionListResponse>(
+    userId,
     "GET",
     `/users${queryStr ? `?${queryStr}` : ""}`
   );
 }
 
-export async function retrieveUser(userId: string) {
-  return notionRequest<NotionUser>("GET", `/users/${userId}`);
+export async function retrieveUser(userId: string, notionUserId: string) {
+  return notionRequest<NotionUser>(userId, "GET", `/users/${notionUserId}`);
 }
 
-export async function retrieveBotUser() {
-  return notionRequest<NotionUser>("GET", "/users/me");
+export async function retrieveBotUser(userId: string) {
+  return notionRequest<NotionUser>(userId, "GET", "/users/me");
 }
 
 // =============================================================================

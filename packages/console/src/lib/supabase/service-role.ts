@@ -27,14 +27,16 @@ function getClient(): SupabaseClient {
   return cachedClient;
 }
 
-// Vault operations via public schema wrapper functions
-// These wrappers call console schema functions with SECURITY DEFINER
+// =============================================================================
+// Legacy: Single-tenant vault access (for backward compatibility)
+// =============================================================================
 export async function getServiceSecret(
   serviceName: string
 ): Promise<Record<string, unknown> | null> {
   const client = getClient();
-  const { data, error } = await client
-    .rpc("mcp_get_service_secret", { service_name: serviceName });
+  const { data, error } = await client.rpc("mcp_get_service_secret", {
+    service_name: serviceName,
+  });
 
   if (error) {
     throw new Error(`Vault error: ${error.message}`);
@@ -48,14 +50,52 @@ export async function upsertServiceSecret(
   secretDescription: string
 ): Promise<void> {
   const client = getClient();
-  const { error } = await client
-    .rpc("mcp_upsert_service_secret", {
-      service_name: serviceName,
-      secret_data: secretData,
-      secret_description: secretDescription,
-    });
+  const { error } = await client.rpc("mcp_upsert_service_secret", {
+    service_name: serviceName,
+    secret_data: secretData,
+    secret_description: secretDescription,
+  });
 
   if (error) {
     throw new Error(`Vault upsert error: ${error.message}`);
   }
+}
+
+// =============================================================================
+// Multi-tenant: User-specific vault access via user_secret_refs
+// =============================================================================
+export async function getUserServiceSecret(
+  userId: string,
+  serviceName: string
+): Promise<Record<string, unknown> | null> {
+  const client = getClient();
+  const { data, error } = await client.rpc("mcp_get_user_service_secret", {
+    p_user_id: userId,
+    p_service_name: serviceName,
+  });
+
+  if (error) {
+    throw new Error(`Vault error: ${error.message}`);
+  }
+  return data as Record<string, unknown> | null;
+}
+
+export async function upsertUserServiceSecret(
+  userId: string,
+  serviceName: string,
+  secretData: Record<string, unknown>,
+  secretDescription?: string
+): Promise<string> {
+  const client = getClient();
+  const { data, error } = await client.rpc("mcp_upsert_user_service_secret", {
+    p_user_id: userId,
+    p_service_name: serviceName,
+    p_secret_data: secretData,
+    p_description: secretDescription ?? null,
+  });
+
+  if (error) {
+    throw new Error(`Vault upsert error: ${error.message}`);
+  }
+  return data as string;
 }

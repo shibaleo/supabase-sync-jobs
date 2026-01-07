@@ -383,9 +383,9 @@ const gcalGetCurrentTime: ToolHandler = async (params, _userId) => {
   }
 };
 
-const gcalListCalendars: ToolHandler = async (_params, _userId) => {
+const gcalListCalendars: ToolHandler = async (_params, userId) => {
   try {
-    const calendars = await calendar.listCalendars();
+    const calendars = await calendar.listCalendars(userId);
     return formatResult({
       calendars: calendars.map((c) => ({
         id: c.id,
@@ -400,16 +400,16 @@ const gcalListCalendars: ToolHandler = async (_params, _userId) => {
   }
 };
 
-const gcalListColors: ToolHandler = async (_params, _userId) => {
+const gcalListColors: ToolHandler = async (_params, userId) => {
   try {
-    const colors = await calendar.getColors();
+    const colors = await calendar.getColors(userId);
     return formatResult(colors);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const gcalListEvents: ToolHandler = async (params, _userId) => {
+const gcalListEvents: ToolHandler = async (params, userId) => {
   try {
     const {
       calendarId,
@@ -429,7 +429,7 @@ const gcalListEvents: ToolHandler = async (params, _userId) => {
       timeZone?: string;
     };
 
-    const events = await calendar.listEvents({
+    const events = await calendar.listEvents(userId, {
       calendarId,
       timeMin,
       timeMax,
@@ -459,7 +459,7 @@ const gcalListEvents: ToolHandler = async (params, _userId) => {
   }
 };
 
-const gcalSearchEvents: ToolHandler = async (params, _userId) => {
+const gcalSearchEvents: ToolHandler = async (params, userId) => {
   try {
     const { calendarId, query, timeMin, timeMax, maxResults, timeZone } =
       params as {
@@ -471,7 +471,7 @@ const gcalSearchEvents: ToolHandler = async (params, _userId) => {
         timeZone?: string;
       };
 
-    const events = await calendar.listEvents({
+    const events = await calendar.listEvents(userId, {
       calendarId,
       timeMin,
       timeMax,
@@ -500,20 +500,20 @@ const gcalSearchEvents: ToolHandler = async (params, _userId) => {
   }
 };
 
-const gcalGetEvent: ToolHandler = async (params, _userId) => {
+const gcalGetEvent: ToolHandler = async (params, userId) => {
   try {
     const { calendarId, eventId } = params as {
       calendarId: string;
       eventId: string;
     };
-    const event = await calendar.getEvent(calendarId, eventId);
+    const event = await calendar.getEvent(userId, calendarId, eventId);
     return formatResult(event);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const gcalCreateEvent: ToolHandler = async (params, _userId) => {
+const gcalCreateEvent: ToolHandler = async (params, userId) => {
   try {
     const {
       calendarId,
@@ -539,7 +539,7 @@ const gcalCreateEvent: ToolHandler = async (params, _userId) => {
       sendUpdates?: "all" | "externalOnly" | "none";
     };
 
-    const event = await calendar.createEvent({
+    const event = await calendar.createEvent(userId, {
       calendarId,
       summary,
       description,
@@ -567,7 +567,7 @@ const gcalCreateEvent: ToolHandler = async (params, _userId) => {
   }
 };
 
-const gcalUpdateEvent: ToolHandler = async (params, _userId) => {
+const gcalUpdateEvent: ToolHandler = async (params, userId) => {
   try {
     const {
       calendarId,
@@ -593,7 +593,7 @@ const gcalUpdateEvent: ToolHandler = async (params, _userId) => {
       sendUpdates?: "all" | "externalOnly" | "none";
     };
 
-    const event = await calendar.updateEvent({
+    const event = await calendar.updateEvent(userId, {
       calendarId,
       eventId,
       summary,
@@ -621,7 +621,7 @@ const gcalUpdateEvent: ToolHandler = async (params, _userId) => {
   }
 };
 
-const gcalDeleteEvent: ToolHandler = async (params, _userId) => {
+const gcalDeleteEvent: ToolHandler = async (params, userId) => {
   try {
     const { calendarId, eventId, sendUpdates = "none" } = params as {
       calendarId: string;
@@ -629,7 +629,7 @@ const gcalDeleteEvent: ToolHandler = async (params, _userId) => {
       sendUpdates?: "all" | "externalOnly" | "none";
     };
 
-    await calendar.deleteEvent({ calendarId, eventId, sendUpdates });
+    await calendar.deleteEvent(userId, { calendarId, eventId, sendUpdates });
 
     return formatResult({ deleted: true, eventId });
   } catch (error) {
@@ -637,7 +637,7 @@ const gcalDeleteEvent: ToolHandler = async (params, _userId) => {
   }
 };
 
-const gcalGetFreeBusy: ToolHandler = async (params, _userId) => {
+const gcalGetFreeBusy: ToolHandler = async (params, userId) => {
   try {
     const { timeMin, timeMax, calendars, timeZone } = params as {
       timeMin: string;
@@ -646,7 +646,7 @@ const gcalGetFreeBusy: ToolHandler = async (params, _userId) => {
       timeZone?: string;
     };
 
-    const result = await calendar.getFreeBusy({
+    const result = await calendar.getFreeBusy(userId, {
       timeMin,
       timeMax,
       items: calendars,

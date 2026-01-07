@@ -1,7 +1,7 @@
 // Google Calendar API Client for MCP
-// Uses OAuth2 tokens stored in Supabase Vault
+// Uses OAuth2 tokens stored in Supabase Vault (multi-tenant)
 
-import { getServiceSecret, upsertServiceSecret } from "@/lib/supabase/service-role";
+import { getUserSecret, upsertUserSecret } from "../../lib/vault";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CALENDAR_API_BASE = "https://www.googleapis.com/calendar/v3";
@@ -22,11 +22,10 @@ interface TokenResponse {
   scope: string;
 }
 
-// Cache
-let cachedCredentials: Credentials | null = null;
-let cachedExpiresAt: Date | null = null;
+// Cache per user
+const credentialsCache = new Map<string, { credentials: Credentials; expiresAt: Date }>();
 
-async function refreshAccessToken(credentials: Credentials): Promise<string> {
+async function refreshAccessToken(userId: string, credentials: Credentials): Promise<string> {
   const response = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -48,7 +47,8 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
   // Update vault with new token
   const newExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-  await upsertServiceSecret(
+  await upsertUserSecret(
+    userId,
     "google_calendar",
     {
       ...credentials,
@@ -61,35 +61,36 @@ async function refreshAccessToken(credentials: Credentials): Promise<string> {
   );
 
   // Update cache
-  cachedCredentials = { ...credentials, access_token: data.access_token };
-  cachedExpiresAt = newExpiresAt;
+  const updatedCredentials = { ...credentials, access_token: data.access_token };
+  credentialsCache.set(userId, { credentials: updatedCredentials, expiresAt: newExpiresAt });
 
   return data.access_token;
 }
 
-async function getAccessToken(): Promise<{
+async function getAccessToken(userId: string): Promise<{
   accessToken: string;
   calendarId: string;
 }> {
   const THRESHOLD_MINUTES = 5;
 
   // Check cache
-  if (cachedCredentials && cachedExpiresAt) {
+  const cached = credentialsCache.get(userId);
+  if (cached) {
     const minutesUntilExpiry =
-      (cachedExpiresAt.getTime() - Date.now()) / 1000 / 60;
+      (cached.expiresAt.getTime() - Date.now()) / 1000 / 60;
     if (minutesUntilExpiry > THRESHOLD_MINUTES) {
       return {
-        accessToken: cachedCredentials.access_token,
-        calendarId: cachedCredentials.calendar_id || "primary",
+        accessToken: cached.credentials.access_token,
+        calendarId: cached.credentials.calendar_id || "primary",
       };
     }
   }
 
   // Load from vault
-  const data = await getServiceSecret("google_calendar");
+  const data = await getUserSecret(userId, "google_calendar");
 
   if (!data) {
-    throw new Error("Google Calendar credentials not found in vault");
+    throw new Error(`Google Calendar credentials not found in vault for user ${userId}`);
   }
 
   const credentials = data as unknown as Credentials;
@@ -114,10 +115,9 @@ async function getAccessToken(): Promise<{
     (expiresAt.getTime() - Date.now()) / 1000 / 60 <= THRESHOLD_MINUTES;
 
   if (needsRefresh) {
-    accessToken = await refreshAccessToken(credentials);
+    accessToken = await refreshAccessToken(userId, credentials);
   } else {
-    cachedCredentials = credentials;
-    cachedExpiresAt = expiresAt;
+    credentialsCache.set(userId, { credentials, expiresAt: expiresAt! });
   }
 
   return {
@@ -133,12 +133,13 @@ export interface CalendarApiError {
 }
 
 async function calendarRequest<T>(
+  userId: string,
   method: string,
   endpoint: string,
   body?: Record<string, unknown>,
   retried = false
 ): Promise<T> {
-  const { accessToken } = await getAccessToken();
+  const { accessToken } = await getAccessToken(userId);
   const url = endpoint.startsWith("http")
     ? endpoint
     : `${CALENDAR_API_BASE}${endpoint}`;
@@ -156,9 +157,8 @@ async function calendarRequest<T>(
     // Handle token expiry
     if (response.status === 401 && !retried) {
       // Force refresh token
-      cachedCredentials = null;
-      cachedExpiresAt = null;
-      return calendarRequest<T>(method, endpoint, body, true);
+      credentialsCache.delete(userId);
+      return calendarRequest<T>(userId, method, endpoint, body, true);
     }
 
     const errorData = await response.json().catch(() => ({}));
@@ -195,8 +195,9 @@ export interface CalendarListResponse {
   nextPageToken?: string;
 }
 
-export async function listCalendars(): Promise<CalendarListEntry[]> {
+export async function listCalendars(userId: string): Promise<CalendarListEntry[]> {
   const response = await calendarRequest<CalendarListResponse>(
+    userId,
     "GET",
     "/users/me/calendarList?maxResults=250"
   );
@@ -259,9 +260,10 @@ export interface ListEventsParams {
 }
 
 export async function listEvents(
+  userId: string,
   params: ListEventsParams = {}
 ): Promise<CalendarEvent[]> {
-  const { calendarId: defaultCalendarId } = await getAccessToken();
+  const { calendarId: defaultCalendarId } = await getAccessToken(userId);
   const calendarId = params.calendarId || defaultCalendarId;
   const calendarIdEncoded = encodeURIComponent(calendarId);
 
@@ -282,6 +284,7 @@ export async function listEvents(
     if (pageToken) query.set("pageToken", pageToken);
 
     const response = await calendarRequest<EventListResponse>(
+      userId,
       "GET",
       `/calendars/${calendarIdEncoded}/events?${query}`
     );
@@ -298,12 +301,14 @@ export async function listEvents(
 }
 
 export async function getEvent(
+  userId: string,
   calendarId: string,
   eventId: string
 ): Promise<CalendarEvent> {
   const calendarIdEncoded = encodeURIComponent(calendarId);
   const eventIdEncoded = encodeURIComponent(eventId);
   return calendarRequest<CalendarEvent>(
+    userId,
     "GET",
     `/calendars/${calendarIdEncoded}/events/${eventIdEncoded}`
   );
@@ -327,9 +332,10 @@ export interface CreateEventParams {
 }
 
 export async function createEvent(
+  userId: string,
   params: CreateEventParams
 ): Promise<CalendarEvent> {
-  const { calendarId: defaultCalendarId } = await getAccessToken();
+  const { calendarId: defaultCalendarId } = await getAccessToken(userId);
   const calendarId = params.calendarId || defaultCalendarId;
   const calendarIdEncoded = encodeURIComponent(calendarId);
 
@@ -349,6 +355,7 @@ export async function createEvent(
   if (params.reminders) body.reminders = params.reminders;
 
   return calendarRequest<CalendarEvent>(
+    userId,
     "POST",
     `/calendars/${calendarIdEncoded}/events?${query}`,
     body
@@ -369,6 +376,7 @@ export interface UpdateEventParams {
 }
 
 export async function updateEvent(
+  userId: string,
   params: UpdateEventParams
 ): Promise<CalendarEvent> {
   const calendarIdEncoded = encodeURIComponent(params.calendarId);
@@ -387,6 +395,7 @@ export async function updateEvent(
   if (params.colorId !== undefined) body.colorId = params.colorId;
 
   return calendarRequest<CalendarEvent>(
+    userId,
     "PATCH",
     `/calendars/${calendarIdEncoded}/events/${eventIdEncoded}?${query}`,
     body
@@ -399,14 +408,14 @@ export interface DeleteEventParams {
   sendUpdates?: "all" | "externalOnly" | "none";
 }
 
-export async function deleteEvent(params: DeleteEventParams): Promise<void> {
+export async function deleteEvent(userId: string, params: DeleteEventParams): Promise<void> {
   const calendarIdEncoded = encodeURIComponent(params.calendarId);
   const eventIdEncoded = encodeURIComponent(params.eventId);
 
   const query = new URLSearchParams();
   if (params.sendUpdates) query.set("sendUpdates", params.sendUpdates);
 
-  const { accessToken } = await getAccessToken();
+  const { accessToken } = await getAccessToken(userId);
   const url = `${CALENDAR_API_BASE}/calendars/${calendarIdEncoded}/events/${eventIdEncoded}?${query}`;
 
   const response = await fetch(url, {
@@ -453,9 +462,10 @@ export interface FreeBusyResponse {
 }
 
 export async function getFreeBusy(
+  userId: string,
   params: FreeBusyParams
 ): Promise<FreeBusyResponse> {
-  return calendarRequest<FreeBusyResponse>("POST", "/freeBusy", params as unknown as Record<string, unknown>);
+  return calendarRequest<FreeBusyResponse>(userId, "POST", "/freeBusy", params as unknown as Record<string, unknown>);
 }
 
 // =============================================================================
@@ -469,8 +479,8 @@ export interface ColorsResponse {
   event: Record<string, { background: string; foreground: string }>;
 }
 
-export async function getColors(): Promise<ColorsResponse> {
-  return calendarRequest<ColorsResponse>("GET", "/colors");
+export async function getColors(userId: string): Promise<ColorsResponse> {
+  return calendarRequest<ColorsResponse>(userId, "GET", "/colors");
 }
 
 // =============================================================================

@@ -333,9 +333,9 @@ const tools: ToolDefinition[] = [
 ];
 
 // Handlers
-const mstodoListLists: ToolHandler = async (_params, _userId) => {
+const mstodoListLists: ToolHandler = async (_params, userId) => {
   try {
-    const lists = await todo.listLists();
+    const lists = await todo.listLists(userId);
     return formatResult({
       count: lists.length,
       lists: lists.map((l) => ({
@@ -351,20 +351,20 @@ const mstodoListLists: ToolHandler = async (_params, _userId) => {
   }
 };
 
-const mstodoGetList: ToolHandler = async (params, _userId) => {
+const mstodoGetList: ToolHandler = async (params, userId) => {
   try {
     const { listId } = params as { listId: string };
-    const list = await todo.getList(listId);
+    const list = await todo.getList(userId, listId);
     return formatResult(list);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const mstodoCreateList: ToolHandler = async (params, _userId) => {
+const mstodoCreateList: ToolHandler = async (params, userId) => {
   try {
     const { displayName } = params as { displayName: string };
-    const list = await todo.createList({ displayName });
+    const list = await todo.createList(userId, { displayName });
     return formatResult({
       created: true,
       list: {
@@ -377,13 +377,13 @@ const mstodoCreateList: ToolHandler = async (params, _userId) => {
   }
 };
 
-const mstodoUpdateList: ToolHandler = async (params, _userId) => {
+const mstodoUpdateList: ToolHandler = async (params, userId) => {
   try {
     const { listId, displayName } = params as {
       listId: string;
       displayName: string;
     };
-    const list = await todo.updateList(listId, displayName);
+    const list = await todo.updateList(userId, listId, displayName);
     return formatResult({
       updated: true,
       list: {
@@ -396,17 +396,17 @@ const mstodoUpdateList: ToolHandler = async (params, _userId) => {
   }
 };
 
-const mstodoDeleteList: ToolHandler = async (params, _userId) => {
+const mstodoDeleteList: ToolHandler = async (params, userId) => {
   try {
     const { listId } = params as { listId: string };
-    await todo.deleteList(listId);
+    await todo.deleteList(userId, listId);
     return formatResult({ deleted: true, listId });
   } catch (error) {
     return formatError(error);
   }
 };
 
-const mstodoListTasks: ToolHandler = async (params, _userId) => {
+const mstodoListTasks: ToolHandler = async (params, userId) => {
   try {
     const { listId, filter, top } = params as {
       listId: string;
@@ -414,7 +414,7 @@ const mstodoListTasks: ToolHandler = async (params, _userId) => {
       top?: number;
     };
 
-    const tasks = await todo.listTasks({ listId, filter, top });
+    const tasks = await todo.listTasks(userId, { listId, filter, top });
 
     return formatResult({
       count: tasks.length,
@@ -434,17 +434,17 @@ const mstodoListTasks: ToolHandler = async (params, _userId) => {
   }
 };
 
-const mstodoGetTask: ToolHandler = async (params, _userId) => {
+const mstodoGetTask: ToolHandler = async (params, userId) => {
   try {
     const { listId, taskId } = params as { listId: string; taskId: string };
-    const task = await todo.getTask(listId, taskId);
+    const task = await todo.getTask(userId, listId, taskId);
     return formatResult(task);
   } catch (error) {
     return formatError(error);
   }
 };
 
-const mstodoCreateTask: ToolHandler = async (params, _userId) => {
+const mstodoCreateTask: ToolHandler = async (params, userId) => {
   try {
     const {
       listId,
@@ -475,7 +475,7 @@ const mstodoCreateTask: ToolHandler = async (params, _userId) => {
       isReminderOn?: boolean;
     };
 
-    const task = await todo.createTask({
+    const task = await todo.createTask(userId, {
       listId,
       title,
       body,
@@ -503,7 +503,7 @@ const mstodoCreateTask: ToolHandler = async (params, _userId) => {
   }
 };
 
-const mstodoUpdateTask: ToolHandler = async (params, _userId) => {
+const mstodoUpdateTask: ToolHandler = async (params, userId) => {
   try {
     const {
       listId,
@@ -536,7 +536,7 @@ const mstodoUpdateTask: ToolHandler = async (params, _userId) => {
       isReminderOn?: boolean;
     };
 
-    const task = await todo.updateTask({
+    const task = await todo.updateTask(userId, {
       listId,
       taskId,
       title,
@@ -565,10 +565,10 @@ const mstodoUpdateTask: ToolHandler = async (params, _userId) => {
   }
 };
 
-const mstodoCompleteTask: ToolHandler = async (params, _userId) => {
+const mstodoCompleteTask: ToolHandler = async (params, userId) => {
   try {
     const { listId, taskId } = params as { listId: string; taskId: string };
-    const task = await todo.completeTask(listId, taskId);
+    const task = await todo.completeTask(userId, listId, taskId);
     return formatResult({
       completed: true,
       task: {
@@ -583,10 +583,10 @@ const mstodoCompleteTask: ToolHandler = async (params, _userId) => {
   }
 };
 
-const mstodoDeleteTask: ToolHandler = async (params, _userId) => {
+const mstodoDeleteTask: ToolHandler = async (params, userId) => {
   try {
     const { listId, taskId } = params as { listId: string; taskId: string };
-    await todo.deleteTask(listId, taskId);
+    await todo.deleteTask(userId, listId, taskId);
     return formatResult({ deleted: true, taskId });
   } catch (error) {
     return formatError(error);
