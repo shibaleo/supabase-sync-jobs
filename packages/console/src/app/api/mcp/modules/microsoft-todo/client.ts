@@ -8,8 +8,11 @@ const MS_TOKEN_URL =
 const GRAPH_API_BASE = "https://graph.microsoft.com/v1.0";
 
 function getSupabaseClient() {
-  const supabaseUrl = process.env.SUPABASE_URL!;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Supabase configuration missing");
+  }
   return createClient(supabaseUrl, supabaseKey);
 }
 
