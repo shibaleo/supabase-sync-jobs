@@ -749,7 +749,6 @@ const SUPABASE_MANAGEMENT_SECRET_NAME = "supabase_management";
 
 export interface SupabaseManagementConfig {
   pat: string;
-  project_ref: string;
 }
 
 /**
@@ -770,7 +769,6 @@ export async function getSupabaseManagementConfig(): Promise<SupabaseManagementC
 
   return {
     pat: data.pat || "",
-    project_ref: data.project_ref || "",
   };
 }
 

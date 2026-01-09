@@ -63,7 +63,6 @@ const SERVICE_FIELDS: Record<ServiceName, { key: string; label: string; type?: s
   ],
   supabase_management: [
     { key: "pat", label: "Personal Access Token", placeholder: "sbp_xxx...", required: true, hint: "Supabase Dashboard → Account → Access Tokens で作成" },
-    { key: "project_ref", label: "Project Reference", placeholder: "xxxxxxxxxxxxxx", required: true, hint: "プロジェクトURL (https://xxx.supabase.co) の xxx 部分" },
   ],
 };
 
