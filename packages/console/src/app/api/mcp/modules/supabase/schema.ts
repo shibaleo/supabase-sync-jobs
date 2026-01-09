@@ -1,4 +1,5 @@
 // packages/console/src/app/api/mcp/modules/supabase/schema.ts
+// Uses user-specific credentials stored in Supabase Vault
 
 import {
   ModuleDefinition,
@@ -6,27 +7,46 @@ import {
   ToolHandler,
   McpToolResult,
 } from "../../lib/types";
+import { getUserSecret } from "../../lib/vault";
 import { createManagementApi, ManagementApi } from "./api";
 
-// Extract project_ref from SUPABASE_URL
-function getProjectRef(): string {
-  const url = process.env.SUPABASE_URL || "";
-  const match = url.match(/https:\/\/([^.]+)\.supabase\.co/);
-  return match?.[1] || "";
+interface SupabaseCredentials {
+  pat: string; // Personal Access Token for Management API
+  project_ref: string; // Project reference (e.g., "liegivvinbwmeujddzif")
 }
 
-function getApi(): ManagementApi | null {
-  const pat = process.env.SB_MANAGEMENT_PAT;
-  if (!pat) {
-    return null;
+// Cache per user
+const apiCache = new Map<string, ManagementApi>();
+
+async function getCredentials(userId: string): Promise<SupabaseCredentials> {
+  const data = await getUserSecret(userId, "supabase_management");
+
+  if (!data) {
+    throw new Error(`Supabase Management credentials not found in vault for user ${userId}`);
   }
 
-  const projectRef = getProjectRef();
-  if (!projectRef) {
-    return null;
+  if (!data.pat || !data.project_ref) {
+    throw new Error(`Supabase Management credentials incomplete. Required: pat, project_ref`);
   }
 
-  return createManagementApi({ accessToken: pat, projectRef });
+  return {
+    pat: data.pat as string,
+    project_ref: data.project_ref as string,
+  };
+}
+
+async function getApi(userId: string): Promise<ManagementApi> {
+  const cached = apiCache.get(userId);
+  if (cached) return cached;
+
+  const creds = await getCredentials(userId);
+  const api = createManagementApi({
+    accessToken: creds.pat,
+    projectRef: creds.project_ref,
+  });
+
+  apiCache.set(userId, api);
+  return api;
 }
 
 const tools: ToolDefinition[] = [
@@ -196,20 +216,11 @@ const tools: ToolDefinition[] = [
 ];
 
 // Handler implementations
-function checkApi(): ManagementApi {
-  const api = getApi();
-  if (!api) {
-    throw new Error(
-      "Supabase Management API not configured. Please set SB_MANAGEMENT_PAT environment variable."
-    );
-  }
-  return api;
-}
-
 async function listTables(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  userId: string
 ): Promise<McpToolResult> {
-  const api = checkApi();
+  const api = await getApi(userId);
   const { schemas = ["public"] } = params as { schemas?: string[] };
 
   const query = `
@@ -228,9 +239,10 @@ async function listTables(
 }
 
 async function executeSql(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  userId: string
 ): Promise<McpToolResult> {
-  const api = checkApi();
+  const api = await getApi(userId);
   const { query, read_only = true } = params as {
     query: string;
     read_only?: boolean;
@@ -240,8 +252,11 @@ async function executeSql(
   return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
 }
 
-async function listMigrations(): Promise<McpToolResult> {
-  const api = checkApi();
+async function listMigrations(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const migrations = await api.listMigrations();
   return {
     content: [{ type: "text", text: JSON.stringify(migrations, null, 2) }],
@@ -249,9 +264,10 @@ async function listMigrations(): Promise<McpToolResult> {
 }
 
 async function applyMigration(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  userId: string
 ): Promise<McpToolResult> {
-  const api = checkApi();
+  const api = await getApi(userId);
   const { name, query } = params as { name: string; query: string };
 
   await api.applyMigration(name, query);
@@ -260,30 +276,40 @@ async function applyMigration(
   };
 }
 
-async function listOrganizations(): Promise<McpToolResult> {
-  const api = checkApi();
+async function listOrganizations(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const orgs = await api.listOrganizations();
   return { content: [{ type: "text", text: JSON.stringify(orgs, null, 2) }] };
 }
 
-async function listProjects(): Promise<McpToolResult> {
-  const api = checkApi();
+async function listProjects(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const projects = await api.listProjects();
   return {
     content: [{ type: "text", text: JSON.stringify(projects, null, 2) }],
   };
 }
 
-async function getProject(): Promise<McpToolResult> {
-  const api = checkApi();
+async function getProject(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const project = await api.getProject();
   return { content: [{ type: "text", text: JSON.stringify(project, null, 2) }] };
 }
 
 async function getLogs(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  userId: string
 ): Promise<McpToolResult> {
-  const api = checkApi();
+  const api = await getApi(userId);
   const { service, start_time, end_time } = params as {
     service:
       | "api"
@@ -300,42 +326,60 @@ async function getLogs(
   return { content: [{ type: "text", text: JSON.stringify(logs, null, 2) }] };
 }
 
-async function getSecurityAdvisors(): Promise<McpToolResult> {
-  const api = checkApi();
+async function getSecurityAdvisors(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const advisors = await api.getSecurityAdvisors();
   return {
     content: [{ type: "text", text: JSON.stringify(advisors, null, 2) }],
   };
 }
 
-async function getPerformanceAdvisors(): Promise<McpToolResult> {
-  const api = checkApi();
+async function getPerformanceAdvisors(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const advisors = await api.getPerformanceAdvisors();
   return {
     content: [{ type: "text", text: JSON.stringify(advisors, null, 2) }],
   };
 }
 
-async function getProjectUrl(): Promise<McpToolResult> {
-  const api = checkApi();
+async function getProjectUrl(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const url = api.getProjectUrl();
   return { content: [{ type: "text", text: url }] };
 }
 
-async function getApiKeys(): Promise<McpToolResult> {
-  const api = checkApi();
+async function getApiKeys(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const keys = await api.getApiKeys();
   return { content: [{ type: "text", text: JSON.stringify(keys, null, 2) }] };
 }
 
-async function generateTypescriptTypes(): Promise<McpToolResult> {
-  const api = checkApi();
+async function generateTypescriptTypes(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const result = await api.generateTypescriptTypes();
   return { content: [{ type: "text", text: result.types }] };
 }
 
-async function listEdgeFunctions(): Promise<McpToolResult> {
-  const api = checkApi();
+async function listEdgeFunctions(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const functions = await api.listEdgeFunctions();
   return {
     content: [{ type: "text", text: JSON.stringify(functions, null, 2) }],
@@ -343,22 +387,29 @@ async function listEdgeFunctions(): Promise<McpToolResult> {
 }
 
 async function getEdgeFunction(
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  userId: string
 ): Promise<McpToolResult> {
-  const api = checkApi();
+  const api = await getApi(userId);
   const { slug } = params as { slug: string };
   const func = await api.getEdgeFunction(slug);
   return { content: [{ type: "text", text: JSON.stringify(func, null, 2) }] };
 }
 
-async function listStorageBuckets(): Promise<McpToolResult> {
-  const api = checkApi();
+async function listStorageBuckets(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const buckets = await api.listStorageBuckets();
   return { content: [{ type: "text", text: JSON.stringify(buckets, null, 2) }] };
 }
 
-async function getStorageConfig(): Promise<McpToolResult> {
-  const api = checkApi();
+async function getStorageConfig(
+  _params: Record<string, unknown>,
+  userId: string
+): Promise<McpToolResult> {
+  const api = await getApi(userId);
   const config = await api.getStorageConfig();
   return { content: [{ type: "text", text: JSON.stringify(config, null, 2) }] };
 }

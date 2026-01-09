@@ -13,6 +13,7 @@ export const SERVICES = [
   "airtable",
   "coda",
   "github_contents",
+  "supabase_management",
 ] as const;
 
 export type ServiceName = (typeof SERVICES)[number];
@@ -30,6 +31,7 @@ export const SERVICE_DISPLAY_NAMES: Record<ServiceName, string> = {
   airtable: "Airtable",
   coda: "Coda",
   github_contents: "GitHub Contents",
+  supabase_management: "Supabase Management",
 };
 
 // 認証タイプ
@@ -45,6 +47,7 @@ export const SERVICE_AUTH_TYPES: Record<ServiceName, "api_key" | "oauth"> = {
   airtable: "api_key",
   coda: "api_key",
   github_contents: "api_key",
+  supabase_management: "api_key",
 };
 
 export interface ServiceStatus {
@@ -733,6 +736,90 @@ export async function hasGitHubMcpConfig(): Promise<boolean> {
     .schema("console")
     .rpc("get_service_secret", {
       service_name: GITHUB_MCP_SECRET_NAME,
+    });
+
+  return !error && data !== null;
+}
+
+// ============================================
+// Supabase Management API Token 管理
+// ============================================
+
+const SUPABASE_MANAGEMENT_SECRET_NAME = "supabase_management";
+
+export interface SupabaseManagementConfig {
+  pat: string;
+  project_ref: string;
+}
+
+/**
+ * Supabase Management設定を取得
+ */
+export async function getSupabaseManagementConfig(): Promise<SupabaseManagementConfig | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .schema("console")
+    .rpc("get_service_secret", {
+      service_name: SUPABASE_MANAGEMENT_SECRET_NAME,
+    });
+
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    pat: data.pat || "",
+    project_ref: data.project_ref || "",
+  };
+}
+
+/**
+ * Supabase Management設定を保存
+ */
+export async function saveSupabaseManagementConfig(config: SupabaseManagementConfig): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .schema("console")
+    .rpc("upsert_service_secret", {
+      service_name: SUPABASE_MANAGEMENT_SECRET_NAME,
+      secret_data: { ...config, _auth_type: "api_key" },
+      secret_description: "Supabase Management API Token for MCP integration",
+    });
+
+  if (error) {
+    throw new Error(`Failed to save Supabase Management config: ${error.message}`);
+  }
+}
+
+/**
+ * Supabase Management設定を削除
+ */
+export async function deleteSupabaseManagementConfig(): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .schema("console")
+    .rpc("delete_service_secret", {
+      service_name: SUPABASE_MANAGEMENT_SECRET_NAME,
+    });
+
+  if (error) {
+    throw new Error(`Failed to delete Supabase Management config: ${error.message}`);
+  }
+}
+
+/**
+ * Supabase Management設定が存在するかチェック
+ */
+export async function hasSupabaseManagementConfig(): Promise<boolean> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .schema("console")
+    .rpc("get_service_secret", {
+      service_name: SUPABASE_MANAGEMENT_SECRET_NAME,
     });
 
   return !error && data !== null;

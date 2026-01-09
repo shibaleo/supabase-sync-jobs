@@ -61,6 +61,10 @@ const SERVICE_FIELDS: Record<ServiceName, { key: string; label: string; type?: s
     { key: "token", label: "Personal Access Token", placeholder: "github_pat_xxx...", required: true, hint: "Fine-grained PAT (Contents: Read 権限が必要。全リポジトリにアクセス可能なトークン)" },
     { key: "repositories", label: "Repositories", placeholder: "owner/repo/path\nowner/another-repo/docs\norg/project/content", multiline: true, required: true, hint: "1行に1つ: owner/repo/path 形式" },
   ],
+  supabase_management: [
+    { key: "pat", label: "Personal Access Token", placeholder: "sbp_xxx...", required: true, hint: "Supabase Dashboard → Account → Access Tokens で作成" },
+    { key: "project_ref", label: "Project Reference", placeholder: "xxxxxxxxxxxxxx", required: true, hint: "プロジェクトURL (https://xxx.supabase.co) の xxx 部分" },
+  ],
 };
 
 export default async function ServicePage({ params }: { params: Params }) {
